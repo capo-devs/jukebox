@@ -1,25 +1,36 @@
 #include <capo/capo.hpp>
-#include <glfw_instance.hpp>
-#include <glfw_surface.hpp>
-#include <imgui_instance.hpp>
-#include <vk_boot.hpp>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_vulkan.h>
+#include <gui/imgui_instance.hpp>
+#include <misc/delta_time.hpp>
+#include <vk/boot.hpp>
+#include <vk/renderer.hpp>
+#include <win/glfw_instance.hpp>
+#include <win/glfw_surface.hpp>
 #include <imgui.h>
 
+namespace {
+void tick([[maybe_unused]] jk::Time dt) { ImGui::ShowDemoWindow(); }
+} // namespace
+
 int main() {
+	capo::Instance capoInst;
+	if (!capoInst.valid()) { return 10; }
 	auto glfwInst = jk::GlfwInstance::make();
 	auto window = jk::WindowBuilder().size(600, 200).title("Jukebox").centre().show(false).make();
-	auto vkBoot = jk::VkBoot::make(jk::GlfwSurfaceMaker{window});
-	auto imguiInst = jk::ImGuiInstance::make(vkBoot->gfx(), window);
-	if (!glfwInst || !window || !vkBoot || !imguiInst) { return 10; }
+	auto boot = jk::VkBoot::make(jk::GlfwSurfaceMaker{window});
+	if (!window || !boot) { return 10; }
+	jk::Renderer renderer(boot->gfx(), window);
+	auto imguiInst = jk::ImGuiInstance::make(boot->gfx(), window, renderer.renderPass(), renderer.imageCount());
+	if (!glfwInst || !imguiInst) { return 10; }
 	ImGui::GetIO().FontGlobalScale = 2.0f;
 	glfwShowWindow(window);
+	jk::DeltaTime dt;
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
-		if (auto f = imguiInst->frame()) {
-			// do stuff
-			ImGui::ShowDemoWindow();
+		if (auto frame = renderer.nextFrame({})) {
+			imguiInst->beginFrame();
+			tick(++dt);
+			imguiInst->render(frame->cmd);
+			renderer.submit(*frame);
 		}
 	}
 }

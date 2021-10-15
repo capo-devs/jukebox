@@ -1,10 +1,22 @@
-#include <glfw_instance.hpp>
+#include <win/glfw_instance.hpp>
 #include <iostream>
 
 namespace jk {
 namespace {
 void onGlfwError(int, char const* msg) { std::cerr << "GLFW Error: " << msg << "\n"; }
 } // namespace
+
+UVec2 framebufferSize(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetFramebufferSize(window, &w, &h);
+	return {std::uint32_t(w), std::uint32_t(h)};
+}
+
+UVec2 windowSize(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetWindowSize(window, &w, &h);
+	return {std::uint32_t(w), std::uint32_t(h)};
+}
 
 std::optional<GlfwInstance> GlfwInstance::make() noexcept {
 	glfwSetErrorCallback(&onGlfwError);

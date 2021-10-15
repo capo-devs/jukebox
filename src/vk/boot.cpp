@@ -1,6 +1,5 @@
-#include <common.hpp>
-#include <vk_boot.hpp>
-#include <vk_surface_maker.hpp>
+#include <jk_common.hpp>
+#include <vk/boot.hpp>
 #include <VkBootstrap.h>
 #include <iostream>
 

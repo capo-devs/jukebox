@@ -1,6 +1,7 @@
 #pragma once
-#include <glfw_instance.hpp>
-#include <vk_surface_maker.hpp>
+#include <vk/types.hpp>
+
+struct GLFWwindow;
 
 namespace jk {
 struct GlfwSurfaceMaker : SurfaceMaker {

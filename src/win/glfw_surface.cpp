@@ -1,6 +1,7 @@
 #include <vulkan/vulkan.hpp>
 
-#include <glfw_surface.hpp>
+#include <win/glfw_instance.hpp>
+#include <win/glfw_surface.hpp>
 #include <iostream>
 
 namespace jk {
