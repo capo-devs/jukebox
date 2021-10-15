@@ -1,14 +1,23 @@
 #pragma once
 #include <vulkan/vulkan.hpp>
+#include <limits>
 #include <optional>
 
 namespace jk {
 template <typename D>
 concept vk_dispatch = std::is_same_v<D, vk::Instance> || std::is_same_v<D, vk::Device>;
 
+constexpr auto limitless_extent_v = std::numeric_limits<std::uint32_t>::max();
+constexpr auto limitless_timeout_v = std::numeric_limits<std::uint64_t>::max();
+
 template <typename... T>
 constexpr bool allValid(T... t) noexcept {
 	return ((t != T{}) && ...);
+}
+
+template <typename T, typename... Ts>
+constexpr bool anyOf(T t, Ts... ts) noexcept {
+	return ((t == ts) || ...);
 }
 
 ///
@@ -61,15 +70,19 @@ class Box<T, Dispatch> {
 	Dispatch m_dispatch;
 };
 
+struct Queue {
+	vk::Queue queue;
+	std::uint32_t family{};
+};
+
 struct GFX {
 	vk::Instance instance;
-	vk::DebugUtilsMessengerEXT messenger;
 	vk::PhysicalDevice physicalDevice;
 	vk::Device device;
-	vk::Queue queue;
+	Queue queue;
 	vk::SurfaceKHR surface;
 
-	bool valid() const noexcept { return allValid(instance, surface, physicalDevice, device, queue); }
+	bool valid() const noexcept { return allValid(instance, surface, physicalDevice, device, queue.queue); }
 };
 
 struct SurfaceMaker;

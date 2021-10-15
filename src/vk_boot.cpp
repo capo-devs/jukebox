@@ -41,11 +41,12 @@ bool VkBoot::tryMake(SurfaceMaker const& surfaceMaker) {
 		std::cerr << "Failed to get graphics queue. Error: " << graphics_queue_ret.error().message() << "\n";
 		return false;
 	}
+	auto const family = vkb_device.get_queue_index(vkb::QueueType::graphics).value();
 	m_instance = std::move(instance);
 	m_messenger = std::move(messenger);
 	m_device = std::move(device);
 	m_surface = std::move(surface);
-	m_gfx = {m_instance, m_messenger, dev_ret->physical_device.physical_device, m_device, graphics_queue_ret.value(), m_surface};
+	m_gfx = {m_instance, dev_ret->physical_device.physical_device, m_device, {graphics_queue_ret.value(), family}, m_surface};
 	vk::DynamicLoader dl;
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(m_gfx.instance, dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"), m_gfx.device);
 	return true;
