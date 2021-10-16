@@ -1,4 +1,5 @@
 #include <jk_common.hpp>
+#include <misc/log.hpp>
 #include <vk/renderer.hpp>
 #include <win/glfw_instance.hpp>
 #include <thread>
@@ -15,6 +16,7 @@ Renderer::Renderer(GFX const& gfx, GLFWwindow* window) : m_factory(gfx, window) 
 		sync.frame.cmd = makeCommandBuffer(gfx.device, sync.pool);
 	}
 	m_pass = makeRenderPass(gfx.device, m_factory.swapchain().format.format);
+	Log::debug("Swapchain Renderer constructed, image count: [{}], buffering: [{}]", imageCount(), buffering_v);
 }
 
 std::optional<RenderFrame> Renderer::nextFrame(Clear const& clear) {

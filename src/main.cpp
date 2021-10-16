@@ -1,6 +1,7 @@
 #include <capo/capo.hpp>
 #include <gui/imgui_instance.hpp>
 #include <misc/delta_time.hpp>
+#include <misc/log.hpp>
 #include <vk/boot.hpp>
 #include <vk/renderer.hpp>
 #include <win/glfw_instance.hpp>
@@ -12,6 +13,7 @@ void tick([[maybe_unused]] jk::Time dt) { ImGui::ShowDemoWindow(); }
 } // namespace
 
 int main() {
+	jk::Log::File log("jukebox_log.txt");
 	capo::Instance capoInst;
 	if (!capoInst.valid()) { return 10; }
 	auto glfwInst = jk::GlfwInstance::make();
@@ -21,7 +23,7 @@ int main() {
 	jk::Renderer renderer(boot->gfx(), window);
 	auto imguiInst = jk::ImGuiInstance::make(boot->gfx(), window, renderer.renderPass(), renderer.imageCount());
 	if (!glfwInst || !imguiInst) { return 10; }
-	ImGui::GetIO().FontGlobalScale = 2.0f;
+	ImGui::GetIO().FontGlobalScale = 1.33f;
 	glfwShowWindow(window);
 	jk::DeltaTime dt;
 	while (!glfwWindowShouldClose(window)) {

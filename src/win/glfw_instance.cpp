@@ -1,9 +1,9 @@
+#include <misc/log.hpp>
 #include <win/glfw_instance.hpp>
-#include <iostream>
 
 namespace jk {
 namespace {
-void onGlfwError(int, char const* msg) { std::cerr << "GLFW Error: " << msg << "\n"; }
+void onGlfwError(int, char const* msg) { Log::error("GLFW Error: {}", msg); }
 } // namespace
 
 UVec2 framebufferSize(GLFWwindow* window) noexcept {
@@ -23,11 +23,11 @@ std::optional<GlfwInstance> GlfwInstance::make() noexcept {
 	GlfwInstance ret;
 	ret.m_init = glfwInit();
 	if (!ret.m_init) {
-		std::cerr << "Failed to init GLFW\n";
+		Log::error("Failed to init GLFW");
 		return std::nullopt;
 	}
 	if (!glfwVulkanSupported()) {
-		std::cerr << "Vulkan not supported\n";
+		Log::error("Vulkan not supported");
 		return std::nullopt;
 	}
 	return ret;
@@ -50,7 +50,7 @@ GLFWwindow* WindowBuilder::make() noexcept {
 		}
 		if (m_flags.test(Flag::eShow)) { glfwShowWindow(ret); }
 	} else {
-		std::cerr << "Failed to create window\n";
+		Log::error("Failed to create window");
 	}
 	return ret;
 }
