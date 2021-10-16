@@ -13,7 +13,7 @@ void tick([[maybe_unused]] jk::Time dt) { ImGui::ShowDemoWindow(); }
 } // namespace
 
 int main() {
-	jk::Log::File log("jukebox_log.txt");
+	auto file = jk::Log::toFile("jukebox_log.txt");
 	capo::Instance capoInst;
 	if (!capoInst.valid()) { return 10; }
 	auto glfwInst = jk::GlfwInstance::make();
@@ -32,7 +32,7 @@ int main() {
 			imguiInst->beginFrame();
 			tick(++dt);
 			imguiInst->render(frame->cmd);
-			renderer.submit(*frame);
+			renderer.present(*frame);
 		}
 	}
 }

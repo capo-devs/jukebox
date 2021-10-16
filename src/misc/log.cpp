@@ -1,70 +1,56 @@
 #include <ktl/async_queue.hpp>
+#include <ktl/kthread.hpp>
 #include <misc/delta_time.hpp>
 #include <misc/log.hpp>
-#include <atomic>
-#include <deque>
 #include <fstream>
 #include <iostream>
-#include <thread>
 
 namespace jk {
-ktl::async_queue<std::string> g_queue;
-std::atomic<bool> g_active;
+struct FileLogger {
+	ktl::async_queue<std::string> queue;
+	ktl::kthread thread;
+	std::string path;
 
-struct Log::File::Impl {
-	std::thread thread;
-
-	Impl(std::string_view path) {
-		if (!g_active.load()) {
-			g_active.store(true);
-			thread = std::thread([path]() {
-				while (auto line = g_queue.pop()) {
-					if (auto file = std::ofstream(path.data(), std::ios::app)) { file << *line; }
-				}
-			});
-		}
-	}
-
-	~Impl() {
-		if (thread.joinable()) {
-			g_queue.active(false);
-			thread.join();
-			g_active.store(false);
-		}
+	FileLogger(std::string p) : path(std::move(p)) {
+		thread = ktl::kthread([this]() {
+			while (auto line = queue.pop()) {
+				if (auto file = std::ofstream(path, std::ios::app)) { file << *line; }
+			}
+		});
 	}
 };
 
-Log::File::File(File&&) noexcept = default;
-Log::File& Log::File::operator=(File&&) noexcept = default;
-Log::File::~File() { stop(); }
+std::optional<FileLogger> g_file;
 
-Log::File::File(std::string_view path) noexcept {
-	auto file = std::ofstream(path.data(), std::ios::out);
-	if (file.good() && !g_active.load()) {
-		file.close();
-		debug("Logging to file [{}]", path);
-		impl = std::make_unique<Impl>(path);
-		if (!g_active.load()) {
-			impl.reset();
-			warn("File log [{}] failed", path);
-		} else {
-			info("jukebox [{}]", timeStr("%a %F %Z"));
-		}
+Log::File::File(File&& rhs) noexcept { std::swap(active, rhs.active); }
+Log::File& Log::File::operator=(File rhs) noexcept { return (std::swap(active, rhs.active), *this); }
+Log::File::~File() noexcept {
+	if (active && g_file) {
+		g_file->queue.active(false);
+		g_file.reset();
+		info("Stopped file logging");
 	}
 }
 
-bool Log::File::logging() const noexcept { return impl != nullptr; }
-
-void Log::File::stop() {
-	if (impl) { debug("Stopped logging to file"); }
-	impl.reset();
+std::optional<Log::File> Log::toFile(std::string path) {
+	if (g_file) {
+		print(Level::warn, ktl::format("Already logging to file [{}]", g_file->path), false);
+		return std::nullopt;
+	}
+	if (auto file = std::ofstream(path); !file) {
+		error("Failed to create log file [{}]", path);
+		return std::nullopt;
+	}
+	g_file.emplace(std::move(path));
+	print(Level::debug, ktl::format("Logging to file [{}]", g_file->path), false);
+	return File(true);
 }
 
-void Log::print(Level level, std::string_view message) {
+void Log::print(Level level, std::string_view message, bool file) {
 	static constexpr char levels[] = {'E', 'W', 'I', 'D'};
 	std::ostream& out = level == Level::error ? std::cerr : std::cout;
 	auto line = ktl::format("[{}] {} [{}]\n", levels[std::size_t(level)], message, timeStr());
 	out << line;
-	if (g_active.load()) { g_queue.push(std::move(line)); }
+	if (file && g_file) { g_file->queue.push(std::move(line)); }
 }
 } // namespace jk

@@ -1,29 +1,18 @@
 #pragma once
 #include <jk_common.hpp>
 #include <ktl/str_format.hpp>
-#include <memory>
+#include <optional>
 
 namespace jk {
 
 class Log {
   public:
 	enum class Level { error, warn, info, debug };
-
-	struct File {
-		struct Impl;
-		std::unique_ptr<Impl> impl;
-
-		File(std::string_view path) noexcept;
-		File(File&&) noexcept;
-		File& operator=(File&&) noexcept;
-		~File();
-
-		bool logging() const noexcept;
-		void stop();
-	};
+	struct File;
 
 	static Level minLevel() noexcept { return s_minLevel; }
 	static void minLevel(Level level) noexcept { s_minLevel = level; }
+	static std::optional<File> toFile(std::string path);
 
 	template <typename... T>
 	static void log(Level level, std::string_view fmt, T const&... t) {
@@ -52,8 +41,19 @@ class Log {
 
   private:
 	static constexpr bool skip(Level level) noexcept { return level == Level::debug && !jk_debug; }
-	static void print(Level level, std::string_view msg);
+	static void print(Level level, std::string_view msg, bool file = true);
 
 	inline static Level s_minLevel = jk_debug ? Level::debug : Level::warn;
+};
+
+struct Log::File {
+	File(File&&) noexcept;
+	File& operator=(File) noexcept;
+	~File() noexcept;
+
+  private:
+	File(bool active) noexcept : active(active) {}
+	bool active{};
+	friend class Log;
 };
 } // namespace jk

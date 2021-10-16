@@ -9,17 +9,16 @@ Renderer::Renderer(GFX const& gfx, GLFWwindow* window) : m_factory(gfx, window) 
 	glfwSetWindowIconifyCallback(window, &onIconify);
 	m_factory.make();
 	for (auto& sync : m_sync.ts) {
-		sync.drawn = {gfx.device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)), gfx.device};
-		sync.draw = {gfx.device.createSemaphore({}), gfx.device};
-		sync.present = {gfx.device.createSemaphore({}), gfx.device};
 		sync.pool = {gfx.device.createCommandPool(vk::CommandPoolCreateInfo({}, gfx.queue.family)), gfx.device};
 		sync.frame.cmd = makeCommandBuffer(gfx.device, sync.pool);
 	}
+	resync();
 	m_pass = makeRenderPass(gfx.device, m_factory.swapchain().format.format);
 	Log::debug("Swapchain Renderer constructed, image count: [{}], buffering: [{}]", imageCount(), buffering_v);
 }
 
 std::optional<RenderFrame> Renderer::nextFrame(Clear const& clear) {
+	if (paused()) { return std::nullopt; }
 	auto& sync = m_sync.get();
 	cycleFence(sync.drawn);
 	auto acquire = m_factory.swapchain().acquireNextImage(m_factory.gfx().device, sync.draw);
@@ -41,8 +40,8 @@ std::optional<RenderFrame> Renderer::nextFrame(Clear const& clear) {
 	return sync.frame;
 }
 
-bool Renderer::submit(RenderFrame const& frame) {
-	if (!m_acquired || frame.target.colour.image != m_acquired->image.image) { return false; }
+bool Renderer::present(RenderFrame const& frame) {
+	if (!m_acquired || frame.target.colour.image != m_acquired->image.image || paused()) { return false; }
 	auto& sync = m_sync.get();
 	sync.frame.cmd.endRenderPass();
 	vk::PipelineStageFlags wait = vk::PipelineStageFlagBits::eColorAttachmentOutput;
@@ -61,6 +60,22 @@ bool Renderer::submit(RenderFrame const& frame) {
 	if (!swapchainCheck(m_factory.swapchain().present(*m_acquired, sync.present, m_factory.gfx().queue.queue))) { return false; }
 	m_sync.next();
 	return true;
+}
+
+void Renderer::onIconify(GLFWwindow* window, int iconified) noexcept {
+	switch (iconified) {
+	case GLFW_FALSE: {
+		Log::debug("Window uniconfied, swapchain marked for rebuild");
+		s_flags[window] = Flag::eRebuild;
+		break;
+	}
+	case GLFW_TRUE: {
+		Log::debug("Window iconified, pausing rendering");
+		s_flags[window].set(Flag::ePaused);
+		break;
+	}
+	default: break;
+	}
 }
 
 Box<vk::RenderPass> Renderer::makeRenderPass(vk::Device device, vk::Format colour) {
@@ -104,7 +119,9 @@ void Renderer::cycleFence(Box<vk::Fence>& out) {
 }
 
 bool Renderer::swapchainCheck(vk::Result ret) {
-	if (anyOf(ret, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR) || s_rebuild.contains(m_factory.window())) {
+	auto& flags = s_flags[m_factory.window()];
+	if (flags.test(Flag::ePaused)) { return false; }
+	if (anyOf(ret, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR) || flags.test(Flag::eRebuild)) {
 		static constexpr int max_attempts_v = 5;
 		int fails = 0;
 		bool recreateSuccess = false;
@@ -115,13 +132,22 @@ bool Renderer::swapchainCheck(vk::Result ret) {
 			}
 		}
 		assert(recreateSuccess);
-		s_rebuild.erase(m_factory.window());
+		flags.reset(Flag::eRebuild);
+		resync();
 		return false;
 	}
 	return ret == vk::Result::eSuccess;
 }
 
-void Renderer::onIconify(GLFWwindow* window, int iconified) noexcept {
-	if (iconified == GLFW_FALSE) { s_rebuild.insert(window); }
+void Renderer::resync() {
+	auto const& gfx = m_factory.gfx();
+	for (auto& sync : m_sync.ts) {
+		sync.drawn = {gfx.device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)), gfx.device};
+		sync.draw = {gfx.device.createSemaphore({}), gfx.device};
+		sync.present = {gfx.device.createSemaphore({}), gfx.device};
+		gfx.device.resetCommandPool(sync.pool, {});
+	}
 }
+
+bool Renderer::paused() const noexcept { return s_flags[m_factory.window()].test(Flag::ePaused); }
 } // namespace jk

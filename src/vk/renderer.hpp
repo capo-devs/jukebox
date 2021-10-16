@@ -1,7 +1,8 @@
 #pragma once
+#include <ktl/enum_flags/enum_flags.hpp>
 #include <vk/swapchain.hpp>
 #include <optional>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace jk {
 class Renderer {
@@ -12,20 +13,25 @@ class Renderer {
 	Renderer(GFX const& gfx, GLFWwindow* window);
 
 	std::optional<RenderFrame> nextFrame(Clear const& clear);
-	bool submit(RenderFrame const& frame);
+	bool present(RenderFrame const& frame);
 
 	vk::RenderPass renderPass() const noexcept { return m_pass; }
 	std::uint32_t imageCount() const noexcept { return std::uint32_t(m_factory.swapchain().images.size()); }
 
   private:
+	enum class Flag { ePaused, eRebuild };
+	using Flags = ktl::enum_flags<Flag>;
+
 	static void onIconify(GLFWwindow* window, int iconified) noexcept;
 	static Box<vk::RenderPass> makeRenderPass(vk::Device device, vk::Format colour);
 	static void cycleFence(Box<vk::Fence>& out);
 	void cycleFramebuffer(Box<vk::Framebuffer>& out, RenderImage const& image);
 
 	bool swapchainCheck(vk::Result result);
+	void resync();
+	bool paused() const noexcept;
 
-	inline static std::unordered_set<GLFWwindow*> s_rebuild;
+	inline static std::unordered_map<GLFWwindow*, Flags> s_flags;
 
 	struct Sync {
 		RenderFrame frame;
