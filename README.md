@@ -8,6 +8,8 @@
 
 WIP
 
+![Screenshot](resources/screenshot_0.png)
+
 [Original repository](https://github.com/capo-devs/jukebox)
 
 [LICENCE](LICENSE)

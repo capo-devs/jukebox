@@ -68,11 +68,21 @@ Jukebox::Status Jukebox::tick(Time) {
 			if (m_player.music().position() > Time(2s)) {
 				m_player.seek({});
 			} else {
-				m_player.navPrev(m_player.status() == Player::Status::ePlaying);
+				if (m_player.index() == 0) {
+					m_player.navLast(playing);
+				} else {
+					m_player.navPrev(playing);
+				}
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button(">>")) { m_player.navNext(m_player.status() == Player::Status::ePlaying); }
+		if (ImGui::Button(">>")) {
+			if (m_player.isLastTrack()) {
+				m_player.navFirst(playing);
+			} else {
+				m_player.navNext(playing);
+			}
+		}
 
 		auto const position = m_player.music().position();
 		auto const length = m_player.music().meta().length();
@@ -97,11 +107,12 @@ Jukebox::Status Jukebox::tick(Time) {
 			}
 			std::size_t idx{};
 			for (auto const& path : paths) {
+				auto const file = filename(path);
 				ImGui::SetNextItemWidth((float)fb.x);
 				if (idx++ == m_player.index()) {
-					ImGui::TextColored({0.7f, 0.5f, 1.0f, 1.0f}, "%s", path.data());
+					ImGui::TextColored({0.7f, 0.5f, 1.0f, 1.0f}, "%s", file.data());
 				} else {
-					ImGui::Text("%s", path.data());
+					ImGui::Text("%s", file.data());
 				}
 			}
 			ImGui::EndChild();
