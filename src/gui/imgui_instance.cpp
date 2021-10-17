@@ -89,12 +89,20 @@ ImGuiInstance::~ImGuiInstance() noexcept {
 }
 
 void ImGuiInstance::beginFrame() {
+	if (m_status == Status::eBegun) { endFrame(); }
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
+	m_status = Status::eBegun;
+}
+
+void ImGuiInstance::endFrame() {
+	ImGui::EndFrame();
+	m_status = Status::eEnded;
 }
 
 void ImGuiInstance::render(vk::CommandBuffer cb) {
+	if (m_status == Status::eBegun) { endFrame(); }
 	ImGui::Render();
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cb);
 }

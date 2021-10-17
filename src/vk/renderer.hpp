@@ -1,16 +1,17 @@
 #pragma once
 #include <ktl/enum_flags/enum_flags.hpp>
+#include <misc/delegate.hpp>
 #include <vk/swapchain.hpp>
 #include <optional>
-#include <unordered_map>
 
 namespace jk {
 class Renderer {
   public:
 	using Clear = std::array<float, 4>;
+	using IconifySignal = Delegate<bool>::Signal;
 	static constexpr std::size_t buffering_v = 2;
 
-	Renderer(GFX const& gfx, GLFWwindow* window);
+	Renderer(GFX const& gfx, Swapchain::GetExtent&& getExtent, IconifySignal&& onIconify);
 
 	std::optional<RenderFrame> nextFrame(Clear const& clear);
 	bool present(RenderFrame const& frame);
@@ -22,16 +23,14 @@ class Renderer {
 	enum class Flag { ePaused, eRebuild };
 	using Flags = ktl::enum_flags<Flag>;
 
-	static void onIconify(GLFWwindow* window, int iconified) noexcept;
 	static Box<vk::RenderPass> makeRenderPass(vk::Device device, vk::Format colour);
 	static void cycleFence(Box<vk::Fence>& out);
 	void cycleFramebuffer(Box<vk::Framebuffer>& out, RenderImage const& image);
+	void onIconify(bool iconified);
 
 	bool swapchainCheck(vk::Result result);
 	void resync();
 	bool paused() const noexcept;
-
-	inline static std::unordered_map<GLFWwindow*, Flags> s_flags;
 
 	struct Sync {
 		RenderFrame frame;
@@ -46,5 +45,7 @@ class Renderer {
 	RingBuffer<Sync, buffering_v> m_sync;
 	Box<vk::RenderPass> m_pass;
 	std::optional<Swapchain::Acquire> m_acquired;
+	IconifySignal m_onIconify;
+	Flags m_flags;
 };
 } // namespace jk

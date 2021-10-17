@@ -1,5 +1,8 @@
 #pragma once
 #include <ktl/enum_flags/enum_flags.hpp>
+#include <misc/delegate.hpp>
+#include <misc/vec.hpp>
+#include <win/key.hpp>
 #include <optional>
 #include <string_view>
 
@@ -7,14 +10,11 @@
 #include <GLFW/glfw3.h>
 
 namespace jk {
-template <typename T>
-struct TVec2 {
-	T x, y;
-};
-using UVec2 = TVec2<std::uint32_t>;
-
 UVec2 framebufferSize(GLFWwindow* window) noexcept;
 UVec2 windowSize(GLFWwindow* window) noexcept;
+
+using OnKey = Delegate<Key>;
+using OnIconify = Delegate<bool>;
 
 class GlfwInstance {
   public:
@@ -24,6 +24,10 @@ class GlfwInstance {
 	GlfwInstance(GlfwInstance&& rhs) noexcept : GlfwInstance() { std::swap(m_init, rhs.m_init); }
 	GlfwInstance& operator=(GlfwInstance rhs) noexcept { return (std::swap(m_init, rhs.m_init), *this); }
 	~GlfwInstance() noexcept;
+
+	OnKey::Signal onKey(GLFWwindow* window);
+	OnIconify::Signal onIconify(GLFWwindow* window);
+	void poll() noexcept;
 
   private:
 	bool m_init{};

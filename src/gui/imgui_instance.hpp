@@ -15,13 +15,17 @@ class ImGuiInstance {
 	~ImGuiInstance() noexcept;
 
 	void beginFrame();
+	void endFrame();
 	void render(vk::CommandBuffer cb);
 
   private:
+	enum class Status { eEnded, eBegun };
+
 	static void exchg(ImGuiInstance& lhs, ImGuiInstance& rhs) noexcept;
 
 	vk::Device m_device;
 	Box<vk::DescriptorPool> m_pool;
+	Status m_status{};
 	bool m_init{};
 };
 } // namespace jk

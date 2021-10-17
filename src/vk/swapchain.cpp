@@ -1,6 +1,5 @@
 #include <jk_common.hpp>
 #include <vk/swapchain.hpp>
-#include <win/glfw_instance.hpp>
 
 namespace jk {
 namespace {
@@ -43,7 +42,7 @@ bool Swapchain::Factory::make() {
 	createInfo.imageFormat = m_swapchain.format.format;
 	createInfo.imageColorSpace = m_swapchain.format.colorSpace;
 	m_gfx.device.waitIdle();
-	auto const info = makeInfo(m_gfx, m_window);
+	auto const info = makeInfo(m_gfx, m_extent());
 	if (info.extent.width == 0 || info.extent.height == 0) { return false; }
 	createInfo.imageExtent = info.extent;
 	createInfo.minImageCount = info.imageCount;
@@ -59,13 +58,13 @@ bool Swapchain::Factory::make() {
 
 void Swapchain::Factory::destroy() { destroy(m_gfx, m_swapchain); }
 
-Swapchain::Factory::Info Swapchain::Factory::makeInfo(GFX const& gfx, GLFWwindow* window) {
+Swapchain::Factory::Info Swapchain::Factory::makeInfo(GFX const& gfx, UVec2 extent) {
 	Info ret;
 	auto const caps = gfx.physicalDevice.getSurfaceCapabilitiesKHR(gfx.surface);
 	if (!limitlessExtent(caps.currentExtent)) {
 		ret.extent = caps.currentExtent;
 	} else {
-		ret.extent = clamp(framebufferSize(window), caps.minImageExtent, std::max(caps.maxImageExtent, caps.minImageExtent));
+		ret.extent = clamp(extent, caps.minImageExtent, std::max(caps.maxImageExtent, caps.minImageExtent));
 	}
 	ret.imageCount = std::clamp(3U, caps.minImageCount, caps.maxImageCount);
 	return ret;

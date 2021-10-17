@@ -1,12 +1,12 @@
 #include <jk_common.hpp>
 #include <misc/log.hpp>
 #include <vk/renderer.hpp>
-#include <win/glfw_instance.hpp>
 #include <thread>
 
 namespace jk {
-Renderer::Renderer(GFX const& gfx, GLFWwindow* window) : m_factory(gfx, window) {
-	glfwSetWindowIconifyCallback(window, &onIconify);
+Renderer::Renderer(GFX const& gfx, Swapchain::GetExtent&& getExtent, IconifySignal&& onIconify)
+	: m_factory(gfx, std::move(getExtent)), m_onIconify(std::move(onIconify)) {
+	m_onIconify += [this](bool iconified) { this->onIconify(iconified); };
 	m_factory.make();
 	for (auto& sync : m_sync.ts) {
 		sync.pool = {gfx.device.createCommandPool(vk::CommandPoolCreateInfo({}, gfx.queue.family)), gfx.device};
@@ -62,19 +62,13 @@ bool Renderer::present(RenderFrame const& frame) {
 	return true;
 }
 
-void Renderer::onIconify(GLFWwindow* window, int iconified) noexcept {
-	switch (iconified) {
-	case GLFW_FALSE: {
-		Log::debug("Window uniconfied, swapchain marked for rebuild");
-		s_flags[window] = Flag::eRebuild;
-		break;
-	}
-	case GLFW_TRUE: {
+void Renderer::onIconify(bool iconified) {
+	if (iconified) {
+		m_flags.set(Flag::ePaused);
 		Log::debug("Window iconified, pausing rendering");
-		s_flags[window].set(Flag::ePaused);
-		break;
-	}
-	default: break;
+	} else {
+		m_flags = Flag::eRebuild;
+		Log::debug("Window uniconfied, swapchain marked for rebuild");
 	}
 }
 
@@ -119,9 +113,8 @@ void Renderer::cycleFence(Box<vk::Fence>& out) {
 }
 
 bool Renderer::swapchainCheck(vk::Result ret) {
-	auto& flags = s_flags[m_factory.window()];
-	if (flags.test(Flag::ePaused)) { return false; }
-	if (anyOf(ret, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR) || flags.test(Flag::eRebuild)) {
+	if (m_flags.test(Flag::ePaused)) { return false; }
+	if (anyOf(ret, vk::Result::eSuboptimalKHR, vk::Result::eErrorOutOfDateKHR) || m_flags.test(Flag::eRebuild)) {
 		static constexpr int max_attempts_v = 5;
 		int fails = 0;
 		bool recreateSuccess = false;
@@ -132,7 +125,7 @@ bool Renderer::swapchainCheck(vk::Result ret) {
 			}
 		}
 		assert(recreateSuccess);
-		flags.reset(Flag::eRebuild);
+		m_flags.reset(Flag::eRebuild);
 		resync();
 		return false;
 	}
@@ -149,5 +142,5 @@ void Renderer::resync() {
 	}
 }
 
-bool Renderer::paused() const noexcept { return s_flags[m_factory.window()].test(Flag::ePaused); }
+bool Renderer::paused() const noexcept { return m_flags.test(Flag::ePaused); }
 } // namespace jk
