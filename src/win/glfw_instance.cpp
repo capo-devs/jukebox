@@ -7,6 +7,7 @@ namespace {
 struct Callbacks {
 	OnKey onKey;
 	OnIconify onIconify;
+	OnFileDrop onFileDrop;
 };
 
 std::unordered_map<GLFWwindow*, Callbacks> g_callbacks;
@@ -15,6 +16,7 @@ void onGlfwError(int, char const* msg) { Log::error("GLFW Error: {}", msg); }
 
 void onKey(GLFWwindow* window, int key, int, int action, int mods) { g_callbacks[window].onKey({key, action, mods}); }
 void onIconify(GLFWwindow* window, int iconified) { g_callbacks[window].onIconify(iconified == GLFW_TRUE); }
+void onFileDrop(GLFWwindow* window, int count, char const** paths) { g_callbacks[window].onFileDrop(std::span(paths, std::size_t(count))); }
 } // namespace
 
 UVec2 framebufferSize(GLFWwindow* window) noexcept {
@@ -50,6 +52,7 @@ GlfwInstance::~GlfwInstance() noexcept {
 
 OnKey::Signal GlfwInstance::onKey(GLFWwindow* window) { return g_callbacks[window].onKey.signal(); }
 OnIconify::Signal GlfwInstance::onIconify(GLFWwindow* window) { return g_callbacks[window].onIconify.signal(); }
+OnFileDrop::Signal GlfwInstance::onFileDrop(GLFWwindow* window) { return g_callbacks[window].onFileDrop.signal(); }
 
 void GlfwInstance::poll() noexcept { glfwPollEvents(); }
 
@@ -61,6 +64,7 @@ GLFWwindow* WindowBuilder::make() noexcept {
 	if (ret) {
 		glfwSetKeyCallback(ret, &onKey);
 		glfwSetWindowIconifyCallback(ret, &onIconify);
+		glfwSetDropCallback(ret, &onFileDrop);
 		if (m_flags.test(Flag::ePosition)) {
 			glfwSetWindowPos(ret, m_x, m_y);
 		} else if (m_flags.test(Flag::eCentre)) {

@@ -10,6 +10,7 @@ std::size_t pushValidPaths(std::span<str_t const> paths, std::vector<std::string
 	for (std::string_view path : paths) {
 		if (!path.empty() && music.open(path)) {
 			out.push_back(std::string(path));
+			Log::info("[Player] added {}", path);
 			++ret;
 		}
 	}
@@ -17,11 +18,13 @@ std::size_t pushValidPaths(std::span<str_t const> paths, std::vector<std::string
 }
 } // namespace
 
-bool Player::push(std::string path, bool focus) {
-	capo::Music music(&m_instance);
+Player::Player(ktl::not_null<capo::Instance*> capo) : m_music(capo), m_capo(capo) {}
+
+bool Player::push(std::string path, bool focus, bool autoplay) {
+	capo::Music music(m_capo);
 	if (music.open(path)) {
 		m_paths.push_back(std::move(path));
-		if (focus) { navLast(); }
+		if (focus) { navLast(autoplay); }
 		return true;
 	}
 	return false;
@@ -32,16 +35,25 @@ bool Player::pop() noexcept { return pop(path()); }
 bool Player::pop(std::string_view path) noexcept {
 	if (m_paths.empty() || m_head >= m_paths.size()) { return false; }
 	auto const ret = std::erase(m_paths, path) > 0;
-	if (m_head >= m_paths.size()) { navLast(); }
+	if (m_head >= m_paths.size()) { navLast(m_status == Status::ePlaying); }
 	return ret;
 }
 
-Player& Player::play() {
-	if (!path().empty()) {
-		m_music.open(path());
-		m_music.play();
-		m_status = Status::ePlaying;
+bool Player::open(bool autoplay) {
+	if (empty()) { return false; }
+	stop();
+	if (m_music.open(path())) {
+		if (autoplay) { play(); }
+		return true;
 	}
+	return false;
+}
+
+Player& Player::play() {
+	if (m_status == Status::eIdle && !empty()) {
+		if (!m_music.open(path())) { return *this; }
+	}
+	if (m_status != Status::ePlaying && m_music.play()) { m_status = Status::ePlaying; }
 	return *this;
 }
 
@@ -52,8 +64,7 @@ Player& Player::stop() {
 }
 
 Player& Player::pause() {
-	m_music.pause();
-	m_status = Status::ePaused;
+	if (m_music.pause()) { m_status = Status::ePaused; }
 	return *this;
 }
 
@@ -67,25 +78,30 @@ void Player::update() {
 		if (isLastTrack()) {
 			m_status = Status::eStopped;
 		} else {
-			navNext();
+			navNext(true);
 		}
 	}
 }
 
-Player& Player::navIndex(std::size_t index) {
+Player& Player::navFirst(bool autoplay) { return navIndex(0, autoplay); }
+Player& Player::navLast(bool autoplay) { return navIndex(m_head = m_paths.empty() ? 0 : m_paths.size() - 1, autoplay); }
+Player& Player::navNext(bool autoplay) { return navIndex(m_head + 1, autoplay); }
+Player& Player::navPrev(bool autoplay) { return navIndex(m_head > 0 ? m_head - 1 : m_head, autoplay); }
+
+Player& Player::navIndex(std::size_t index, bool autoplay) {
 	if (index < m_paths.size()) {
 		m_head = index;
-		return play();
+		open(autoplay);
+		return *this;
 	}
-	return navLast();
+	return navLast(autoplay);
 }
 
-std::unique_ptr<Player> Player::make() {
-	auto ret = std::unique_ptr<Player>(new Player); // make_unique cannot call private constructor
-	if (ret->m_instance.valid()) { return ret; }
-	Log::error("Invalid capo instance");
-	return {};
+bool Player::add(std::span<const str_t> paths, bool focus, bool autoplay) {
+	if (pushValidPaths(paths, m_paths, *m_capo) > 0) {
+		if (focus) { navLast(autoplay); }
+		return true;
+	}
+	return false;
 }
-
-bool Player::add(std::span<const str_t> paths) { return pushValidPaths(paths, m_paths, m_instance) > 0; }
 } // namespace jk

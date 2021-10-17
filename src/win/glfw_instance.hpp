@@ -4,17 +4,21 @@
 #include <misc/vec.hpp>
 #include <win/key.hpp>
 #include <optional>
+#include <span>
 #include <string_view>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 namespace jk {
+using str_t = char const*;
+
 UVec2 framebufferSize(GLFWwindow* window) noexcept;
 UVec2 windowSize(GLFWwindow* window) noexcept;
 
 using OnKey = Delegate<Key>;
 using OnIconify = Delegate<bool>;
+using OnFileDrop = Delegate<std::span<str_t const>>;
 
 class GlfwInstance {
   public:
@@ -27,6 +31,7 @@ class GlfwInstance {
 
 	OnKey::Signal onKey(GLFWwindow* window);
 	OnIconify::Signal onIconify(GLFWwindow* window);
+	OnFileDrop::Signal onFileDrop(GLFWwindow* window);
 	void poll() noexcept;
 
   private:
