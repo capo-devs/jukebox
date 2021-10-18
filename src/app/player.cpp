@@ -33,9 +33,18 @@ bool Player::push(std::string path, bool focus, bool autoplay) {
 bool Player::pop() noexcept { return pop(path()); }
 
 bool Player::pop(std::string_view path) noexcept {
-	if (m_paths.empty() || m_head >= m_paths.size()) { return false; }
+	if (m_paths.empty()) { return false; }
+	bool const playing = m_status == Status::ePlaying;
+	bool const last = isLastTrack();
+	if (path == this->path()) {
+		stop();
+		std::erase(m_paths, path);
+		if (last) { m_head = m_paths.empty() ? 0 : m_paths.size() - 1; }
+		open(playing);
+		return true;
+	}
 	auto const ret = std::erase(m_paths, path) > 0;
-	if (m_head >= m_paths.size()) { navLast(m_status == Status::ePlaying); }
+	if (ret && last) { m_head = m_paths.empty() ? 0 : m_paths.size() - 1; }
 	return ret;
 }
 
@@ -50,9 +59,8 @@ bool Player::open(bool autoplay) {
 }
 
 Player& Player::play() {
-	if (m_status == Status::eIdle && !empty()) {
-		if (!m_music.open(path())) { return *this; }
-	}
+	if (empty()) { return *this; }
+	if (m_status != Status::ePaused && !m_music.open(path())) { return *this; }
 	if (m_status != Status::ePlaying && m_music.play()) { m_status = Status::ePlaying; }
 	return *this;
 }
@@ -92,9 +100,8 @@ Player& Player::navIndex(std::size_t index, bool autoplay) {
 	if (index < m_paths.size()) {
 		m_head = index;
 		open(autoplay);
-		return *this;
 	}
-	return navLast(autoplay);
+	return *this;
 }
 
 bool Player::add(std::span<const str_t> paths, bool focus, bool autoplay) {

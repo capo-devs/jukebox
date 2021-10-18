@@ -5,6 +5,7 @@
 #include <misc/delta_time.hpp>
 #include <win/key.hpp>
 #include <memory>
+#include <optional>
 
 struct GLFWwindow;
 
@@ -32,6 +33,7 @@ class Jukebox {
 	Player m_player;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
+	std::optional<capo::Time> m_seek;
 	ktl::not_null<GLFWwindow*> m_window;
 	bool m_showImguiDemo{};
 };
