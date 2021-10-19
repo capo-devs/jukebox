@@ -12,7 +12,7 @@
 int main() {
 	auto file = jk::Log::toFile("jukebox_log.txt");
 	auto glfwInst = jk::GlfwInstance::make();
-	auto window = jk::WindowBuilder().size(600, 200).title("Jukebox").centre().show(false).make();
+	auto window = jk::WindowBuilder().size(600, 250).title("Jukebox").centre().show(false).make();
 	auto boot = jk::VkBoot::make(jk::GlfwSurfaceMaker{window});
 	if (!window || !boot) { return 10; }
 	auto onKeySignal = glfwInst->onKey(window);

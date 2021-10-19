@@ -4,6 +4,7 @@
 #include <misc/log.hpp>
 #include <win/glfw_instance.hpp>
 #include <imgui.h>
+#include <imgui_internal.h>
 
 namespace jk {
 namespace {
@@ -32,6 +33,14 @@ BufString<16> length(capo::utils::Length const& len) noexcept {
 }
 } // namespace
 
+std::optional<float> SliderFloat::operator()(char const* name, float value, float min, float max, char const* label) {
+	if (ImGui::SliderFloat(name, &value, min, max, label, ImGuiSliderFlags_NoInput)) {
+		select = value;
+		return std::nullopt;
+	}
+	return std::exchange(select, std::nullopt);
+}
+
 std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
 	auto ret = std::unique_ptr<Jukebox>(new Jukebox(instance, window));
 	if (!ret->m_capo.valid()) { return {}; }
@@ -47,6 +56,7 @@ Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_
 	m_onFileDrop += [this](std::span<str_t const> paths) { m_player.add(paths, true, true); };
 	ImGui::GetStyle().ScaleAllSizes(1.33f);
 	ImGui::GetIO().FontGlobalScale = 1.33f;
+	ImGui::GetIO().IniFilename = {};
 }
 
 Jukebox::Status Jukebox::tick(Time) {
@@ -57,8 +67,8 @@ Jukebox::Status Jukebox::tick(Time) {
 		if (jk_debug && key.press() && key.is(GLFW_KEY_I) && key.all(GLFW_MOD_CONTROL)) { m_showImguiDemo = !m_showImguiDemo; }
 	}
 	if (jk_debug && Key::chord(keys, GLFW_KEY_W, GLFW_MOD_CONTROL)) { return Status::eQuit; }
-	static constexpr auto flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus |
-								  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
+	static constexpr auto flags =
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 	ImGui::SetNextWindowPos({0.0, 0.0f});
 	auto const fb = framebufferSize(m_window);
 	ImVec2 const size = {float(fb.x), float(fb.y)};
@@ -68,10 +78,12 @@ Jukebox::Status Jukebox::tick(Time) {
 		ImGui::Text("%s", filename(m_player.path()).data());
 		ImGui::Separator();
 
-		auto const status = m_player.status();
-		bool const playing = status == Player::Status::ePlaying;
-		auto const button = playing ? "||" : "|>";
-		if (ImGui::Button(button)) {
+		bool const playing = m_player.playing();
+		static constexpr float playWidth = 40.0f;
+		ImVec2 const playSize = {playWidth, playWidth};
+		ImVec2 const btnSize = {playWidth, playWidth * 0.75f};
+		auto const playPauseBtn = [&]() { return playing ? ImGui::Button("||", playSize) : ImGui::ArrowButtonEx("play", ImGuiDir_Right, playSize); };
+		if (playPauseBtn()) {
 			if (playing) {
 				m_player.pause();
 			} else {
@@ -79,9 +91,9 @@ Jukebox::Status Jukebox::tick(Time) {
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button("[]")) { m_player.stop(); }
+		if (ImGui::Button("_", btnSize)) { m_player.stop(); }
 		ImGui::SameLine();
-		if (ImGui::Button("<<")) {
+		if (ImGui::Button("<<", btnSize)) {
 			if (m_player.music().position() > Time(2s)) {
 				m_player.seek({});
 			} else {
@@ -93,7 +105,7 @@ Jukebox::Status Jukebox::tick(Time) {
 			}
 		}
 		ImGui::SameLine();
-		if (ImGui::Button(">>")) {
+		if (ImGui::Button(">>", btnSize)) {
 			if (m_player.isLastTrack()) {
 				m_player.navFirst(playing);
 			} else {
@@ -104,20 +116,36 @@ Jukebox::Status Jukebox::tick(Time) {
 		auto const position = m_player.music().position();
 		auto const total = m_player.music().meta().length();
 		float pos = position.count();
-		auto bar = m_seek ? *m_seek : position;
-		ImGui::Text("%s", length(capo::utils::Length(bar)).data());
+		ImGui::Text("%s", length(capo::utils::Length(position)).data());
 		ImGui::SameLine();
-		if (ImGui::SliderFloat(length(total).data(), &pos, 0.0f, total.count(), "", ImGuiSliderFlags_NoInput)) {
-			m_seek = capo::Time(pos);
-		} else if (m_seek) {
-			m_player.seek(*m_seek);
-			m_seek.reset();
-		}
+		auto totalLength = length(capo::utils::Length(total));
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(totalLength.data()).x - 10.0f);
+		ImGui::Text("%s", totalLength.data());
+
+		ImGui::SetNextItemWidth(-1.0f);
+		if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
 
 		ImGui::Separator();
-		float gain = m_player.music().gain();
-		if (ImGui::SliderFloat("<))", &gain, 0.0f, 1.0f, "%1.2f")) { m_player.gain(gain); }
+		auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
+		if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
+			if (m_player.muted()) {
+				m_player.unmute();
+			} else {
+				m_player.mute();
+			}
+		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(200.0f);
+		int gain = int(m_player.gain() * 100.0f);
+		if (ImGui::SliderInt("<))##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
+		if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
 
+		ImGui::SameLine();
+		static ImVec2 const upDownSize = {25.0f, 25.0f};
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 2 * upDownSize.x - 25.0f);
+		if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDownSize)) { m_player.swapAhead(); }
+		ImGui::SameLine();
+		if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDownSize)) { m_player.swapBehind(); }
 		ImGui::Separator();
 		if (ImGui::BeginChild("Playlist", {size.x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
 			auto const& paths = m_player.paths();

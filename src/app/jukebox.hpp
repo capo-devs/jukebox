@@ -12,6 +12,12 @@ struct GLFWwindow;
 namespace jk {
 class GlfwInstance;
 
+struct SliderFloat {
+	std::optional<float> select;
+
+	std::optional<float> operator()(char const* name, float value, float min = 0.0f, float max = 0.0f, char const* label = "");
+};
+
 class Jukebox {
   public:
 	enum class Status { eRun, eQuit };
@@ -33,7 +39,7 @@ class Jukebox {
 	Player m_player;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
-	std::optional<capo::Time> m_seek;
+	SliderFloat m_seek;
 	ktl::not_null<GLFWwindow*> m_window;
 	bool m_showImguiDemo{};
 };

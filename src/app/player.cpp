@@ -81,6 +81,32 @@ Player& Player::seek(capo::Time stamp) {
 	return *this;
 }
 
+Player& Player::gain(float gain) {
+	if (gain >= 0.0f) {
+		m_music.gain(gain);
+		m_cachedGain = -1.0f;
+	}
+	return *this;
+}
+
+float Player::gain() const { return muted() ? m_cachedGain : m_music.gain(); }
+
+Player& Player::mute() {
+	if (!muted()) {
+		m_cachedGain = m_music.gain();
+		m_music.gain(0.0f);
+	}
+	return *this;
+}
+
+Player& Player::unmute() {
+	if (muted()) {
+		m_music.gain(m_cachedGain);
+		m_cachedGain = -1.0f;
+	}
+	return *this;
+}
+
 void Player::update() {
 	if (m_status == Status::ePlaying && m_music.state() == capo::State::eStopped) {
 		if (isLastTrack()) {
@@ -101,6 +127,17 @@ Player& Player::navIndex(std::size_t index, bool autoplay) {
 		m_head = index;
 		open(autoplay);
 	}
+	return *this;
+}
+
+Player& Player::swapTracks(std::size_t lhs, std::size_t rhs) noexcept {
+	if (lhs >= m_paths.size() || rhs > m_paths.size()) { return *this; }
+	if (m_head == lhs) {
+		m_head = rhs;
+	} else if (m_head == rhs) {
+		m_head = lhs;
+	}
+	std::swap(m_paths[lhs], m_paths[rhs]);
 	return *this;
 }
 
