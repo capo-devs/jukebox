@@ -31,6 +31,19 @@ BufString<16> length(capo::utils::Length const& len) noexcept {
 	}
 	return BufString<16>(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
 }
+
+[[maybe_unused]] void tooltipMarker(char const* desc, char const* marker = "(?)") {
+	ImGui::SameLine();
+	ImGui::TextDisabled("%s", marker);
+	if (ImGui::IsItemHovered()) {
+		ImGui::BeginTooltip();
+		ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+		ImGui::TextUnformatted(desc);
+		ImGui::PopTextWrapPos();
+		ImGui::EndTooltip();
+	}
+}
+
 } // namespace
 
 std::optional<float> SliderFloat::operator()(char const* name, float value, float min, float max, char const* label) {
@@ -53,7 +66,10 @@ Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_
 	m_onKey += [this](Key const& key) {
 		if (m_keys.has_space()) { m_keys.push_back(key); }
 	};
-	m_onFileDrop += [this](std::span<str_t const> paths) { m_player.add(paths, true, true); };
+	m_onFileDrop += [this](std::span<str_t const> paths) {
+		bool const empty = m_player.empty();
+		if (m_player.add(paths) && empty) { m_player.play(); }
+	};
 	ImGui::GetStyle().ScaleAllSizes(1.33f);
 	ImGui::GetIO().FontGlobalScale = 1.33f;
 	ImGui::GetIO().IniFilename = {};
@@ -94,24 +110,35 @@ Jukebox::Status Jukebox::tick(Time) {
 		if (ImGui::Button("_", btnSize)) { m_player.stop(); }
 		ImGui::SameLine();
 		if (ImGui::Button("<<", btnSize)) {
-			if (m_player.music().position() > Time(2s)) {
+			if (m_player.isFirstTrack() || m_player.music().position() > Time(2s)) {
 				m_player.seek({});
 			} else {
-				if (m_player.index() == 0) {
-					m_player.navLast(playing);
-				} else {
-					m_player.navPrev(playing);
-				}
+				m_player.navPrev();
 			}
 		}
 		ImGui::SameLine();
 		if (ImGui::Button(">>", btnSize)) {
 			if (m_player.isLastTrack()) {
-				m_player.navFirst(playing);
+				m_player.navFirst();
 			} else {
-				m_player.navNext(playing);
+				m_player.navNext();
 			}
 		}
+		ImGui::SameLine();
+		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 240.0f - 20.0f);
+		auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
+		if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
+			if (m_player.muted()) {
+				m_player.unmute();
+			} else {
+				m_player.mute();
+			}
+		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(200.0f);
+		int gain = int(m_player.gain() * 100.0f);
+		if (ImGui::SliderInt("##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
+		if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
 
 		auto const position = m_player.music().position();
 		auto const total = m_player.music().meta().length();
@@ -126,27 +153,12 @@ Jukebox::Status Jukebox::tick(Time) {
 		if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
 
 		ImGui::Separator();
-		auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
-		if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
-			if (m_player.muted()) {
-				m_player.unmute();
-			} else {
-				m_player.mute();
-			}
-		}
+		static ImVec2 const upDnSize = {25.0f, 25.0f};
+		if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDnSize)) { m_player.swapAhead(); }
 		ImGui::SameLine();
-		ImGui::SetNextItemWidth(200.0f);
-		int gain = int(m_player.gain() * 100.0f);
-		if (ImGui::SliderInt("<))##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
-		if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
-
+		if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDnSize)) { m_player.swapBehind(); }
 		ImGui::SameLine();
-		static ImVec2 const upDownSize = {25.0f, 25.0f};
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 2 * upDownSize.x - 25.0f);
-		if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDownSize)) { m_player.swapAhead(); }
-		ImGui::SameLine();
-		if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDownSize)) { m_player.swapBehind(); }
-		ImGui::Separator();
+		if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
 		if (ImGui::BeginChild("Playlist", {size.x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
 			auto const& paths = m_player.paths();
 			std::size_t idx{};
@@ -154,7 +166,7 @@ Jukebox::Status Jukebox::tick(Time) {
 			std::optional<std::string_view> pop;
 			for (auto const& path : paths) {
 				auto const file = filename(path);
-				bool const selected = idx == m_player.index();
+				bool const selected = idx == m_player.head();
 				if (ImGui::Selectable(file.data(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
 					if (ImGui::GetIO().MouseDoubleClicked[0]) { select = idx; }
 				}
@@ -163,7 +175,7 @@ Jukebox::Status Jukebox::tick(Time) {
 			}
 			ImGui::EndChild();
 			if (select) {
-				m_player.navIndex(*select, true);
+				m_player.navIndex(*select);
 			} else if (pop) {
 				m_player.pop(*pop);
 			}

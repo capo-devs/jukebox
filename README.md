@@ -8,7 +8,7 @@
 
 WIP
 
-![Screenshot](resources/screenshot_0.png)
+![Screenshot](resources/screenshot_01.png)
 
 [Original repository](https://github.com/capo-devs/jukebox)
 
