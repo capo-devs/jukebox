@@ -2,6 +2,7 @@
 #include <ktl/kthread.hpp>
 #include <misc/delta_time.hpp>
 #include <misc/log.hpp>
+#include <version.hpp>
 #include <fstream>
 #include <iostream>
 
@@ -43,6 +44,7 @@ std::optional<Log::File> Log::toFile(std::string path) {
 	}
 	g_file.emplace(std::move(path));
 	print(Level::debug, ktl::format("Logging to file [{}]", g_file->path), false);
+	print(Level::info, ktl::format("jukebox v{} | {}", jukebox_version, timeStr<stdch::system_clock>("%a %F (%Z)")));
 	return File(true);
 }
 

@@ -5,8 +5,13 @@
 #include <win/glfw_instance.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <filesystem>
+#include <map>
+#include <set>
 
 namespace jk {
+namespace stdfs = std::filesystem;
+
 namespace {
 template <std::size_t N = 256>
 constexpr BufString<N> filename(std::string_view path) noexcept {
@@ -43,7 +48,6 @@ BufString<16> length(capo::utils::Length const& len) noexcept {
 		ImGui::EndTooltip();
 	}
 }
-
 } // namespace
 
 std::optional<float> SliderFloat::operator()(char const* name, float value, float min, float max, char const* label) {
@@ -53,6 +57,59 @@ std::optional<float> SliderFloat::operator()(char const* name, float value, floa
 	}
 	return std::exchange(select, std::nullopt);
 }
+
+struct FileBrowser::Impl {
+	stdfs::path m_pwd;
+
+	stdfs::path operator()(std::span<std::string_view const> extensions, bool& out_show) {
+		stdfs::path ret;
+		if (out_show) {
+			ImGui::SetNextWindowSize({450.0f, 170.0f}, ImGuiCond_Once);
+			if (ImGui::Begin(jk::FileBrowser::title_v.data(), &out_show)) {
+				std::set<stdfs::path> dirs;
+				std::map<std::string, std::set<stdfs::path>> files;
+				for (auto const& path : stdfs::directory_iterator(m_pwd)) {
+					if (path.is_directory()) {
+						auto p = path.path();
+						if (!p.filename().generic_string().starts_with('.')) { dirs.insert(std::move(p)); }
+					} else {
+						auto p = path.path();
+						auto const ext = p.extension();
+						if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) { files[ext.string()].insert(std::move(p)); }
+					}
+				}
+				ImGui::Text("%s", m_pwd.generic_string().data());
+				if (ImGui::BeginChild("Playlist", {ImGui::GetWindowSize().x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
+					if (m_pwd.has_parent_path() && ImGui::Selectable("..##go_up", false)) {
+						pwd(m_pwd.parent_path());
+					} else {
+						for (auto& path : dirs) {
+							std::string const name = path.filename().generic_string() + '/';
+							if (ImGui::Selectable(name.data(), false)) { pwd(std::move(path)); }
+						}
+						for (auto& [_, set] : files) {
+							for (auto const& path : set) {
+								if (ImGui::Selectable(path.filename().generic_string().data(), false)) { ret = std::move(path); }
+							}
+						}
+					}
+				}
+				ImGui::EndChild();
+			}
+			ImGui::End();
+		}
+		return ret;
+	}
+
+	void pwd(stdfs::path path) { m_pwd = std::move(path); }
+};
+
+FileBrowser::FileBrowser() : m_impl(std::make_unique<Impl>()) { m_impl->m_pwd = stdfs::current_path(); }
+FileBrowser::FileBrowser(FileBrowser&&) noexcept = default;
+FileBrowser& FileBrowser::operator=(FileBrowser&&) noexcept = default;
+FileBrowser::~FileBrowser() noexcept = default;
+
+std::string FileBrowser::operator()(std::span<std::string_view const> extensions) { return (*m_impl)(extensions, m_show).generic_string(); }
 
 std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
 	auto ret = std::unique_ptr<Jukebox>(new Jukebox(instance, window));
@@ -80,109 +137,143 @@ Jukebox::Status Jukebox::tick(Time) {
 	auto keys = std::exchange(m_keys, {});
 	for (Key const& key : keys) {
 		if (key.press() && key.is(GLFW_KEY_SPACE) && key.any(GLFW_MOD_SHIFT | GLFW_MOD_CONTROL)) { Log::debug("space pressed"); }
-		if (jk_debug && key.press() && key.is(GLFW_KEY_I) && key.all(GLFW_MOD_CONTROL)) { m_showImguiDemo = !m_showImguiDemo; }
+		if constexpr (jk_debug) {
+			if (key.press() && key.is(GLFW_KEY_I) && key.all(GLFW_MOD_CONTROL)) { m_showImguiDemo = !m_showImguiDemo; }
+		}
 	}
-	if (jk_debug && Key::chord(keys, GLFW_KEY_W, GLFW_MOD_CONTROL)) { return Status::eQuit; }
+	if constexpr (jk_debug) {
+		if (Key::chord(keys, GLFW_KEY_W, GLFW_MOD_CONTROL)) { return Status::eQuit; }
+	}
 	static constexpr auto flags =
 		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
 	ImGui::SetNextWindowPos({0.0, 0.0f});
 	auto const fb = framebufferSize(m_window);
-	ImVec2 const size = {float(fb.x), float(fb.y)};
-	ImGui::SetNextWindowSize(size);
+	ImGui::SetNextWindowSize({float(fb.x), float(fb.y)});
 	if (ImGui::Begin("Jukebox", nullptr, flags)) {
 		// main window
 		ImGui::Text("%s", filename(m_player.path()).data());
 		ImGui::Separator();
-
-		bool const playing = m_player.playing();
-		static constexpr float playWidth = 40.0f;
-		ImVec2 const playSize = {playWidth, playWidth};
-		ImVec2 const btnSize = {playWidth, playWidth * 0.75f};
-		auto const playPauseBtn = [&]() { return playing ? ImGui::Button("||", playSize) : ImGui::ArrowButtonEx("play", ImGuiDir_Right, playSize); };
-		if (playPauseBtn()) {
-			if (playing) {
-				m_player.pause();
-			} else {
-				m_player.play();
-			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("_", btnSize)) { m_player.stop(); }
-		ImGui::SameLine();
-		if (ImGui::Button("<<", btnSize)) {
-			if (m_player.isFirstTrack() || m_player.music().position() > Time(2s)) {
-				m_player.seek({});
-			} else {
-				m_player.navPrev();
-			}
-		}
-		ImGui::SameLine();
-		if (ImGui::Button(">>", btnSize)) {
-			if (m_player.isLastTrack()) {
-				m_player.navFirst();
-			} else {
-				m_player.navNext();
-			}
-		}
-		ImGui::SameLine();
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 240.0f - 20.0f);
-		auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
-		if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
-			if (m_player.muted()) {
-				m_player.unmute();
-			} else {
-				m_player.mute();
-			}
-		}
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(200.0f);
-		int gain = int(m_player.gain() * 100.0f);
-		if (ImGui::SliderInt("##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
-		if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
-
-		auto const position = m_player.music().position();
-		auto const total = m_player.music().meta().length();
-		float pos = position.count();
-		ImGui::Text("%s", length(capo::utils::Length(position)).data());
-		ImGui::SameLine();
-		auto totalLength = length(capo::utils::Length(total));
-		ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(totalLength.data()).x - 10.0f);
-		ImGui::Text("%s", totalLength.data());
-
-		ImGui::SetNextItemWidth(-1.0f);
-		if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
-
+		controls();
+		seekBar();
 		ImGui::Separator();
-		static ImVec2 const upDnSize = {25.0f, 25.0f};
-		if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDnSize)) { m_player.swapAhead(); }
-		ImGui::SameLine();
-		if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDnSize)) { m_player.swapBehind(); }
-		ImGui::SameLine();
-		if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
-		if (ImGui::BeginChild("Playlist", {size.x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
-			auto const& paths = m_player.paths();
-			std::size_t idx{};
-			std::optional<std::size_t> select;
-			std::optional<std::string_view> pop;
-			for (auto const& path : paths) {
-				auto const file = filename(path);
-				bool const selected = idx == m_player.head();
-				if (ImGui::Selectable(file.data(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-					if (ImGui::GetIO().MouseDoubleClicked[0]) { select = idx; }
-				}
-				if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) { pop = path; }
-				++idx;
-			}
-			ImGui::EndChild();
-			if (select) {
-				m_player.navIndex(*select);
-			} else if (pop) {
-				m_player.pop(*pop);
-			}
-		}
+		playlist();
 	}
 	ImGui::End();
-	if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
+	if constexpr (jk_debug) {
+		if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
+	}
 	return Status::eRun;
+}
+
+void Jukebox::controls() {
+	static constexpr float playWidth = 40.0f;
+	ImVec2 const playBtnSize = {playWidth, playWidth};
+	ImVec2 const btnSize = {playWidth, playWidth * 0.75f};
+	float stopOffsetX{};
+	auto const playPauseBtn = [&]() {
+		return m_player.playing() ? ImGui::Button("||##pause", playBtnSize) : ImGui::ArrowButtonEx("play", ImGuiDir_Right, playBtnSize);
+	};
+	if (playPauseBtn()) {
+		if (m_player.playing()) {
+			m_player.pause();
+		} else {
+			m_player.play();
+		}
+	}
+	stopOffsetX += playBtnSize.x + 10.0f;
+	ImGui::SameLine();
+	if (ImGui::Button("##stop", btnSize)) { m_player.stop(); }
+	{
+		float const rect = 10.0f;
+		ImVec2 const c = ImGui::GetCursorPos();
+		ImVec2 const p_min = {c.x + stopOffsetX + (playBtnSize.x - rect) * 0.5f, c.y - (playBtnSize.x - rect) - 5.0f};
+		ImVec2 const p_max = {p_min.x + rect, p_min.y + rect};
+		ImGui::GetWindowDrawList()->AddRectFilled(p_min, p_max, 0xffffffff);
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("<<##previous", btnSize)) {
+		if (m_player.isFirstTrack() || m_player.music().position() > Time(2s)) {
+			m_player.seek({});
+		} else {
+			m_player.navPrev();
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button(">>##next", btnSize)) {
+		if (m_player.isLastTrack()) {
+			m_player.navFirst();
+		} else {
+			m_player.navNext();
+		}
+	}
+	ImGui::SameLine();
+	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 240.0f - 20.0f);
+	auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
+	if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
+		if (m_player.muted()) {
+			m_player.unmute();
+		} else {
+			m_player.mute();
+		}
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(200.0f);
+	int gain = int(m_player.gain() * 100.0f);
+	if (ImGui::SliderInt("##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
+	if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
+}
+
+void Jukebox::seekBar() {
+	auto const position = m_player.music().position();
+	auto const total = m_player.music().meta().length();
+	float pos = position.count();
+	ImGui::Text("%s", length(capo::utils::Length(position)).data());
+	ImGui::SameLine();
+	auto totalLength = length(capo::utils::Length(total));
+	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(totalLength.data()).x - 10.0f);
+	ImGui::Text("%s", totalLength.data());
+	ImGui::SetNextItemWidth(-1.0f);
+	if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
+}
+
+void Jukebox::playlist() {
+	static ImVec2 const upDnSize = {25.0f, 25.0f};
+	if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDnSize)) { m_player.swapAhead(); }
+	ImGui::SameLine();
+	if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDnSize)) { m_player.swapBehind(); }
+	ImGui::SameLine();
+	if (ImGui::Button("+##push", upDnSize)) { m_browser.m_show = !m_browser.m_show; }
+	ImGui::SameLine();
+	if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
+	static constexpr std::string_view extensions[] = {".flac", ".mp3", ".wav"};
+	if (auto path = m_browser(extensions); !path.empty()) { m_player.push(std::move(path), false); }
+	ImGui::Separator();
+	ImGui::Text("Playlist");
+	tooltipMarker("Drag files / use + to add\nLeft click to play\nRight click to remove");
+	if (ImGui::BeginChild("Playlist", {ImGui::GetWindowSize().x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
+		auto const& paths = m_player.paths();
+		std::size_t idx{};
+		std::optional<std::size_t> select;
+		std::optional<std::string_view> pop;
+		for (auto const& path : paths) {
+			auto const file = filename(path);
+			bool const selected = idx == m_player.head();
+			if (ImGui::Selectable(file.data(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+				if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+					pop = path;
+				} else {
+					select = idx;
+				}
+			}
+			++idx;
+		}
+		ImGui::EndChild();
+		if (select) {
+			m_player.navIndex(*select);
+			if (!m_player.playing()) { m_player.play(); }
+		} else if (pop) {
+			m_player.pop(*pop);
+		}
+	}
 }
 } // namespace jk

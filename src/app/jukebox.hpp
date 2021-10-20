@@ -18,6 +18,25 @@ struct SliderFloat {
 	std::optional<float> operator()(char const* name, float value, float min = 0.0f, float max = 0.0f, char const* label = "");
 };
 
+class FileBrowser {
+  public:
+	inline static constexpr std::string_view title_v = "Click to Add";
+
+	FileBrowser();
+	FileBrowser(FileBrowser&&) noexcept;
+	FileBrowser& operator=(FileBrowser&&) noexcept;
+	~FileBrowser() noexcept;
+
+	std::string operator()(std::span<std::string_view const> extensions);
+
+	bool m_show{};
+
+  private:
+	struct Impl;
+
+	std::unique_ptr<Impl> m_impl;
+};
+
 class Jukebox {
   public:
 	enum class Status { eRun, eQuit };
@@ -34,12 +53,17 @@ class Jukebox {
   private:
 	Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
 
+	void controls();
+	void seekBar();
+	void playlist();
+
 	capo::Instance m_capo;
 	ktl::fixed_vector<Key, 16> m_keys;
 	Player m_player;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
 	SliderFloat m_seek;
+	FileBrowser m_browser;
 	ktl::not_null<GLFWwindow*> m_window;
 	bool m_showImguiDemo{};
 };

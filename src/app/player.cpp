@@ -164,7 +164,7 @@ Player& Player::swapTracks(std::size_t lhs, std::size_t rhs) noexcept {
 
 void Player::transition(Status next) noexcept {
 	switch (m_status) {
-	case Status::eIdle: assert(next == Status::ePlaying); break;
+	case Status::eIdle: assert(next != Status::ePaused); break;
 	case Status::ePlaying: assert(anyOf(next, Status::ePaused, Status::eStopped)); break;
 	case Status::ePaused: assert(anyOf(next, Status::ePlaying)); break;
 	case Status::eStopped: break;
