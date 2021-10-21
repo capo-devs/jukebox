@@ -9,6 +9,7 @@ using str_t = char const*;
 class Player {
   public:
 	enum class Status { eIdle, ePlaying, ePaused, eStopped };
+	enum class Mode { eStream, ePreload };
 
 	Player(ktl::not_null<capo::Instance*> capo);
 
@@ -41,6 +42,9 @@ class Player {
 	Player& swapAhead() noexcept { return swapHead(m_head + 1); }
 	Player& swapBehind() noexcept { return m_head > 0 ? swapHead(m_head - 1) : *this; }
 
+	Player& mode(Mode mode);
+	Mode mode() const noexcept { return m_mode; }
+
 	capo::Music const& music() const noexcept { return m_music; }
 	std::span<std::string const> paths() const noexcept { return m_paths; }
 	std::size_t head() const noexcept { return m_head; }
@@ -54,6 +58,7 @@ class Player {
 
   private:
 	void transition(Status next) noexcept;
+	Player& preloadFail();
 
 	capo::Music m_music;
 	std::vector<std::string> m_paths;
@@ -61,5 +66,6 @@ class Player {
 	std::size_t m_head{};
 	float m_cachedGain = -1.0f;
 	Status m_status{};
+	Mode m_mode = Mode::eStream;
 };
 } // namespace jk

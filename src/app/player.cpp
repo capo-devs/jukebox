@@ -94,7 +94,17 @@ void Player::clear() {
 
 Player& Player::play() {
 	if (empty()) { return *this; }
-	if (m_status != Status::ePaused && !m_music.open(path())) { return *this; }
+	if (m_status != Status::ePaused) {
+		if (m_mode == Mode::ePreload) {
+			if (auto pcm = capo::PCM::fromFile(path().data()); !pcm) {
+				return preloadFail();
+			} else {
+				if (!m_music.preload(std::move(*pcm))) { return preloadFail(); }
+			}
+		} else {
+			if (!m_music.open(path())) { return *this; }
+		}
+	}
 	if (m_status != Status::ePlaying && m_music.play()) { transition(Status::ePlaying); }
 	return *this;
 }
@@ -148,7 +158,7 @@ void Player::update() {
 		if (isLastTrack()) {
 			transition(Status::eStopped);
 		} else {
-			Log::info("[Player] Autoplaying next track");
+			Log::info("[Player] Autoplaying next track [{}]", m_paths[m_head + 1]);
 			navNext();
 		}
 	}
@@ -179,6 +189,21 @@ Player& Player::swapTracks(std::size_t lhs, std::size_t rhs) noexcept {
 	return *this;
 }
 
+Player& Player::mode(Mode mode) {
+	if (m_mode != mode) {
+		m_mode = mode;
+		if (empty()) { return *this; }
+		auto const pos = m_music.position();
+		auto const replay = playing();
+		stop();
+		if (replay) {
+			play();
+			seek(pos);
+		}
+	}
+	return *this;
+}
+
 void Player::transition(Status next) noexcept {
 	switch (m_status) {
 	case Status::eIdle: assert(next != Status::ePaused); break;
@@ -187,5 +212,12 @@ void Player::transition(Status next) noexcept {
 	case Status::eStopped: break;
 	}
 	m_status = next;
+}
+
+Player& Player::preloadFail() {
+	Log::error("[Player] Failed to preload [{}]!", path());
+	m_mode = Mode::eStream;
+	if (m_music.open(path())) { m_music.play(); }
+	return *this;
 }
 } // namespace jk

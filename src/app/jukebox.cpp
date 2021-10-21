@@ -135,7 +135,7 @@ std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLF
 	return ret;
 }
 
-Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_player(&m_capo), m_window(window) {
+Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_player(&m_capo), m_controller(instance.onKey(window)), m_window(window) {
 	m_onKey = instance.onKey(window);
 	m_onFileDrop = instance.onFileDrop(window);
 	m_onKey += [this](Key const& key) {
@@ -152,6 +152,20 @@ Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_
 
 Jukebox::Status Jukebox::tick(Time) {
 	m_player.update();
+	using Action = Controller::Action;
+	for (auto const& response : m_controller.update()) {
+		switch (response.action) {
+		case Action::ePlayPause: playPause(); break;
+		case Action::eStop: m_player.stop(); break;
+		case Action::eMute: muteUnmute(); break;
+		case Action::eNext: next(); break;
+		case Action::ePrev: prev(); break;
+		case Action::eSeek: seek(capo::Time(response.value)); break;
+		case Action::eVolume: m_player.gain(std::clamp(m_player.gain() + response.value, 0.0f, 1.0f)); break;
+		case Action::eQuit: return Status::eQuit;
+		case Action::eNone: break;
+		}
+	}
 	auto keys = std::exchange(m_keys, {});
 	for (Key const& key : keys) {
 		if (key.press() && key.is(GLFW_KEY_SPACE) && key.any(GLFW_MOD_SHIFT | GLFW_MOD_CONTROL)) { Log::debug("space pressed"); }
@@ -193,13 +207,7 @@ void Jukebox::mainControls() {
 	auto const playPauseBtn = [&]() {
 		return m_player.playing() ? ImGui::Button("||##pause", playBtnSize) : ImGui::ArrowButtonEx("play", ImGuiDir_Right, playBtnSize);
 	};
-	if (playPauseBtn()) {
-		if (m_player.playing()) {
-			m_player.pause();
-		} else {
-			m_player.play();
-		}
-	}
+	if (playPauseBtn()) { playPause(); }
 	stopOffsetX += playBtnSize.x + 10.0f;
 	ImGui::SameLine();
 	if (ImGui::Button("##stop", btnSize)) { m_player.stop(); }
@@ -211,31 +219,13 @@ void Jukebox::mainControls() {
 		ImGui::GetWindowDrawList()->AddRectFilled(p_min, p_max, 0xffffffff);
 	}
 	ImGui::SameLine();
-	if (ImGui::Button("<<##previous", btnSize)) {
-		if (m_player.isFirstTrack() || m_player.music().position() > Time(2s)) {
-			m_player.seek({});
-		} else {
-			m_player.navPrev();
-		}
-	}
+	if (ImGui::Button("<<##previous", btnSize)) { prev(); }
 	ImGui::SameLine();
-	if (ImGui::Button(">>##next", btnSize)) {
-		if (m_player.isLastTrack()) {
-			m_player.navFirst();
-		} else {
-			m_player.navNext();
-		}
-	}
+	if (ImGui::Button(">>##next", btnSize)) { next(); }
 	ImGui::SameLine();
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 240.0f - 20.0f);
 	auto const volumeStr = m_player.muted() ? "<x##mute" : "<))##mute";
-	if (ImGui::Button(volumeStr, {40.0f, 23.0f})) {
-		if (m_player.muted()) {
-			m_player.unmute();
-		} else {
-			m_player.mute();
-		}
-	}
+	if (ImGui::Button(volumeStr, {40.0f, 23.0f})) { muteUnmute(); }
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(200.0f);
 	int gain = int(m_player.gain() * 100.0f);
@@ -292,6 +282,11 @@ void Jukebox::trackControls() {
 		}
 	}
 	if (auto path = m_browser(); !path.empty()) { m_player.push(std::move(path), false); }
+	ImGui::SameLine();
+	bool preload = m_player.mode() == Player::Mode::ePreload;
+	if (ImGui::Checkbox("Preload", &preload)) { m_player.mode(preload ? Player::Mode::ePreload : Player::Mode::eStream); }
+	ImGui::SameLine();
+	tooltipMarker("Faster to seek, slower to open");
 }
 
 void Jukebox::tracklist() {
@@ -316,6 +311,50 @@ void Jukebox::tracklist() {
 		} else if (pop) {
 			m_player.pop(*pop);
 		}
+	}
+}
+
+void Jukebox::playPause() {
+	if (m_player.playing()) {
+		m_player.pause();
+	} else {
+		m_player.play();
+	}
+}
+
+void Jukebox::next() {
+	if (m_player.isLastTrack()) {
+		m_player.navFirst();
+	} else {
+		m_player.navNext();
+	}
+}
+
+void Jukebox::prev() {
+	if (m_player.isFirstTrack() || m_player.music().position() > Time(2s)) {
+		m_player.seek({});
+	} else {
+		m_player.navPrev();
+	}
+}
+
+void Jukebox::seek(Time delta) {
+	auto const remain = m_player.music().meta().length() - m_player.music().position();
+	if (delta >= remain) {
+		if (m_player.isLastTrack()) {
+			m_player.stop();
+		} else {
+			next();
+		}
+	}
+	m_player.seek(m_player.music().position() + delta);
+}
+
+void Jukebox::muteUnmute() {
+	if (m_player.muted()) {
+		m_player.unmute();
+	} else {
+		m_player.mute();
 	}
 }
 } // namespace jk

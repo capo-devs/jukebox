@@ -1,9 +1,9 @@
 #pragma once
+#include <app/controller.hpp>
 #include <app/player.hpp>
 #include <ktl/fixed_vector.hpp>
 #include <misc/delegate.hpp>
 #include <misc/delta_time.hpp>
-#include <win/key.hpp>
 #include <memory>
 #include <optional>
 
@@ -58,10 +58,17 @@ class Jukebox {
 	void trackControls();
 	void tracklist();
 
+	void playPause();
+	void next();
+	void prev();
+	void seek(Time stamp);
+	void muteUnmute();
+
 	capo::Instance m_capo;
 	char m_savePath[256] = "jukebox_playlist.txt";
 	ktl::fixed_vector<Key, 16> m_keys;
 	Player m_player;
+	Controller m_controller;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
 	LazySliderFloat m_seek;
