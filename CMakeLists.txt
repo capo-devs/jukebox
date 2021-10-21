@@ -45,9 +45,9 @@ if(is_root_project AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 endif()
 
 # version
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/version.hpp.in")
-  message(STATUS "Configuring version.hpp")
-  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/version.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/generated/version.hpp")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in")
+  message(STATUS "Configuring jk_version.hpp")
+  configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/generated/jk_version.hpp")
 endif()
 
 # appveyor

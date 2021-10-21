@@ -12,8 +12,8 @@ struct GLFWwindow;
 namespace jk {
 class GlfwInstance;
 
-struct SliderFloat {
-	std::optional<float> select;
+struct LazySliderFloat {
+	std::optional<float> prev;
 
 	std::optional<float> operator()(char const* name, float value, float min = 0.0f, float max = 0.0f, char const* label = "");
 };
@@ -27,7 +27,7 @@ class FileBrowser {
 	FileBrowser& operator=(FileBrowser&&) noexcept;
 	~FileBrowser() noexcept;
 
-	std::string operator()(std::span<std::string_view const> extensions);
+	std::string operator()();
 
 	bool m_show{};
 
@@ -53,18 +53,21 @@ class Jukebox {
   private:
 	Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
 
-	void controls();
+	void mainControls();
 	void seekBar();
-	void playlist();
+	void trackControls();
+	void tracklist();
 
 	capo::Instance m_capo;
+	char m_savePath[256] = "jukebox_playlist.txt";
 	ktl::fixed_vector<Key, 16> m_keys;
 	Player m_player;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
-	SliderFloat m_seek;
+	LazySliderFloat m_seek;
 	FileBrowser m_browser;
 	ktl::not_null<GLFWwindow*> m_window;
+	bool m_saveFailure{};
 	bool m_showImguiDemo{};
 };
 } // namespace jk

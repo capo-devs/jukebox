@@ -1,4 +1,5 @@
 #include <app/jukebox.hpp>
+#include <app/playlist.hpp>
 #include <capo/utils/format_unit.hpp>
 #include <misc/buf_string.hpp>
 #include <misc/log.hpp>
@@ -14,11 +15,12 @@ namespace stdfs = std::filesystem;
 
 namespace {
 template <std::size_t N = 256>
-constexpr BufString<N> filename(std::string_view path) noexcept {
+constexpr BufString<N> filename(std::string_view path, bool ext) noexcept {
 	if (path.empty()) { return "--"; }
 	auto it = path.find_last_of('/');
 	if (it == std::string_view::npos) { it = path.find_last_of('\\'); }
 	if (it != std::string_view::npos) { path = path.substr(it + 1); }
+	if (it = path.find_last_of('.'); !ext && it != std::string_view::npos) { path = path.substr(0, it); }
 	return path.size() < N ? path : path.substr(path.size() - N);
 }
 
@@ -50,22 +52,37 @@ BufString<16> length(capo::utils::Length const& len) noexcept {
 }
 } // namespace
 
-std::optional<float> SliderFloat::operator()(char const* name, float value, float min, float max, char const* label) {
+std::optional<float> LazySliderFloat::operator()(char const* name, float value, float min, float max, char const* label) {
 	if (ImGui::SliderFloat(name, &value, min, max, label, ImGuiSliderFlags_NoInput)) {
-		select = value;
+		prev = value;
 		return std::nullopt;
 	}
-	return std::exchange(select, std::nullopt);
+	return std::exchange(prev, std::nullopt);
 }
 
 struct FileBrowser::Impl {
+	enum Ext { eFlac, eMp3, eWav, eTxt };
 	stdfs::path m_pwd;
+	bool exts[4] = {true, true, true, false};
 
-	stdfs::path operator()(std::span<std::string_view const> extensions, bool& out_show) {
+	stdfs::path operator()(bool& out_show) {
 		stdfs::path ret;
 		if (out_show) {
-			ImGui::SetNextWindowSize({450.0f, 170.0f}, ImGuiCond_Once);
+			ImGui::SetNextWindowSize({450.0f, 200.0f}, ImGuiCond_Once);
 			if (ImGui::Begin(jk::FileBrowser::title_v.data(), &out_show)) {
+				ImGui::Text("%s", m_pwd.generic_string().data());
+				ImGui::Checkbox("FLAC", &exts[eFlac]);
+				ImGui::SameLine();
+				ImGui::Checkbox("MP3", &exts[eMp3]);
+				ImGui::SameLine();
+				ImGui::Checkbox("WAV", &exts[eWav]);
+				ImGui::SameLine();
+				ImGui::Checkbox("Playlist", &exts[eTxt]);
+				ktl::fixed_vector<std::string_view, 4> extNames;
+				if (exts[eFlac]) { extNames.push_back(".flac"); }
+				if (exts[eMp3]) { extNames.push_back(".mp3"); }
+				if (exts[eWav]) { extNames.push_back(".wav"); }
+				if (exts[eTxt]) { extNames.push_back(".txt"); }
 				std::set<stdfs::path> dirs;
 				std::map<std::string, std::set<stdfs::path>> files;
 				for (auto const& path : stdfs::directory_iterator(m_pwd)) {
@@ -74,11 +91,12 @@ struct FileBrowser::Impl {
 						if (!p.filename().generic_string().starts_with('.')) { dirs.insert(std::move(p)); }
 					} else {
 						auto p = path.path();
-						auto const ext = p.extension();
-						if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) { files[ext.string()].insert(std::move(p)); }
+						auto const ext = p.extension().string();
+						if (std::find(extNames.begin(), extNames.end(), ext) != extNames.end()) {
+							if (ext != ".txt" || Playlist::valid(p.string().data(), true)) { files[ext].insert(std::move(p)); }
+						}
 					}
 				}
-				ImGui::Text("%s", m_pwd.generic_string().data());
 				if (ImGui::BeginChild("Playlist", {ImGui::GetWindowSize().x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
 					if (m_pwd.has_parent_path() && ImGui::Selectable("..##go_up", false)) {
 						pwd(m_pwd.parent_path());
@@ -109,7 +127,7 @@ FileBrowser::FileBrowser(FileBrowser&&) noexcept = default;
 FileBrowser& FileBrowser::operator=(FileBrowser&&) noexcept = default;
 FileBrowser::~FileBrowser() noexcept = default;
 
-std::string FileBrowser::operator()(std::span<std::string_view const> extensions) { return (*m_impl)(extensions, m_show).generic_string(); }
+std::string FileBrowser::operator()() { return (*m_impl)(m_show).generic_string(); }
 
 std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
 	auto ret = std::unique_ptr<Jukebox>(new Jukebox(instance, window));
@@ -151,12 +169,14 @@ Jukebox::Status Jukebox::tick(Time) {
 	ImGui::SetNextWindowSize({float(fb.x), float(fb.y)});
 	if (ImGui::Begin("Jukebox", nullptr, flags)) {
 		// main window
-		ImGui::Text("%s", filename(m_player.path()).data());
+		ImGui::Text("%s", filename(m_player.path(), false).data());
 		ImGui::Separator();
-		controls();
+		mainControls();
 		seekBar();
 		ImGui::Separator();
-		playlist();
+		trackControls();
+		ImGui::Separator();
+		tracklist();
 	}
 	ImGui::End();
 	if constexpr (jk_debug) {
@@ -165,7 +185,7 @@ Jukebox::Status Jukebox::tick(Time) {
 	return Status::eRun;
 }
 
-void Jukebox::controls() {
+void Jukebox::mainControls() {
 	static constexpr float playWidth = 40.0f;
 	ImVec2 const playBtnSize = {playWidth, playWidth};
 	ImVec2 const btnSize = {playWidth, playWidth * 0.75f};
@@ -236,18 +256,45 @@ void Jukebox::seekBar() {
 	if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
 }
 
-void Jukebox::playlist() {
+void Jukebox::trackControls() {
 	static ImVec2 const upDnSize = {25.0f, 25.0f};
 	if (ImGui::ArrowButtonEx("move_down", ImGuiDir_Down, upDnSize)) { m_player.swapAhead(); }
 	ImGui::SameLine();
 	if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDnSize)) { m_player.swapBehind(); }
 	ImGui::SameLine();
 	if (ImGui::Button("+##push", upDnSize)) { m_browser.m_show = !m_browser.m_show; }
-	ImGui::SameLine();
-	if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
-	static constexpr std::string_view extensions[] = {".flac", ".mp3", ".wav"};
-	if (auto path = m_browser(extensions); !path.empty()) { m_player.push(std::move(path), false); }
-	ImGui::Separator();
+	if (!m_player.empty()) {
+		ImGui::SameLine();
+		if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
+		ImGui::SameLine();
+		if (ImGui::Button("Save", {0.0f, upDnSize.y})) {
+			ImGui::OpenPopup("save_playlist");
+			m_saveFailure = {};
+		}
+		if (ImGui::BeginPopup("save_playlist")) {
+			if (m_saveFailure) {
+				auto text = BufString<512>("Save to %s failed!", m_savePath);
+				ImGui::Text("%s", text.data());
+			} else {
+				ImGui::Text("Path:");
+				ImGui::SameLine();
+				ImGui::InputText("##save_path", m_savePath, IM_ARRAYSIZE(m_savePath));
+			}
+			if (ImGui::Button("OK")) {
+				Playlist list{{m_player.paths().begin(), m_player.paths().end()}};
+				if (!m_saveFailure && !list.save(m_savePath)) {
+					m_saveFailure = true;
+				} else {
+					ImGui::CloseCurrentPopup();
+				}
+			}
+			ImGui::EndPopup();
+		}
+	}
+	if (auto path = m_browser(); !path.empty()) { m_player.push(std::move(path), false); }
+}
+
+void Jukebox::tracklist() {
 	ImGui::Text("Playlist");
 	tooltipMarker("Drag files / use + to add\nLeft click to play\nRight click to remove");
 	if (ImGui::BeginChild("Playlist", {ImGui::GetWindowSize().x - 20.0f, 0.0f}, true, ImGuiWindowFlags_HorizontalScrollbar)) {
@@ -256,15 +303,10 @@ void Jukebox::playlist() {
 		std::optional<std::size_t> select;
 		std::optional<std::string_view> pop;
 		for (auto const& path : paths) {
-			auto const file = filename(path);
+			auto const file = filename(path, true);
 			bool const selected = idx == m_player.head();
-			if (ImGui::Selectable(file.data(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-				if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
-					pop = path;
-				} else {
-					select = idx;
-				}
-			}
+			if (ImGui::Selectable(file.data(), selected)) { select = idx; }
+			if (!select && ImGui::IsItemClicked(ImGuiMouseButton_Right)) { pop = path; }
 			++idx;
 		}
 		ImGui::EndChild();

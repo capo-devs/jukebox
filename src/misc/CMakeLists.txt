@@ -7,4 +7,6 @@ target_sources(${PROJECT_NAME} PRIVATE
   log.cpp
   log.hpp
   vec.hpp
+  version.cpp
+  version.hpp
 )

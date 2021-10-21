@@ -3,7 +3,7 @@
 #include <ktl/fixed_vector.hpp>
 #include <misc/delta_time.hpp>
 #include <misc/log.hpp>
-#include <version.hpp>
+#include <misc/version.hpp>
 #include <vk/boot.hpp>
 #include <vk/renderer.hpp>
 #include <win/glfw_instance.hpp>
@@ -11,18 +11,13 @@
 #include <imgui.h>
 
 namespace {
-[[maybe_unused]] constexpr std::string_view shortVersion() noexcept {
-	auto ret = jukebox_version;
-	auto it = ret.find('.');
-	it = ret.find('.', it + 1);
-	return ret.substr(0, it);
-}
-
-std::string windowTitle(std::string_view appName) {
+jk::BufString<128> windowTitle(std::string_view appName) {
 	if constexpr (jk_debug) {
-		return ktl::format("{} v{} | Debug", appName, jukebox_version);
+		auto const app = jk::Version::app().toString(true);
+		return jk::BufString<128>("%s %s | Debug", appName.data(), app.data());
 	} else {
-		return ktl::format("{} v{}", appName, shortVersion());
+		auto const app = jk::Version::app().toString();
+		return jk::BufString<128>("%s %s", appName.data(), app.data());
 	}
 }
 } // namespace

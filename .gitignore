@@ -16,4 +16,4 @@ compile_commands.json
 **.ogg
 **.flac
 imgui.ini
-jukebox_log.txt
+jukebox_*.txt

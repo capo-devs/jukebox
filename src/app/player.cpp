@@ -1,22 +1,31 @@
 #include <app/player.hpp>
+#include <app/playlist.hpp>
 #include <misc/log.hpp>
 
 namespace jk {
 namespace {
-std::size_t pushValidPaths(std::span<str_t const> paths, std::vector<std::string>& out, capo::Instance& instance) {
-	capo::Music music(&instance);
-	std::size_t ret{};
+template <typename Container>
+void extractPaths(Container const& paths, std::vector<std::string>& out, capo::Music& music, std::size_t total = 0) {
 	out.reserve(out.size() + paths.size());
 	for (std::string_view path : paths) {
-		if (!path.empty() && music.open(path)) {
+		if (path.empty()) { continue; }
+		auto const extIdx = path.find_last_of('.');
+		if (extIdx == std::string_view::npos) { continue; }
+		auto const ext = path.substr(extIdx);
+		if (ext == ".txt") {
+			Playlist list;
+			if (auto loaded = list.load(path.data()); loaded > 0) {
+				Log::debug("[Player] loaded {} tracks from playlist [{}]", loaded, path);
+				extractPaths(list.tracks, out, music, total);
+			}
+		} else if (music.open(path)) {
 			out.push_back(std::string(path));
-			Log::info("[Player] added [{}]", path);
-			++ret;
+			Log::info("[Player] Added [{}]", path);
+			++total;
 		} else {
-			Log::info("[Player] skipped [{}]", path);
+			Log::info("[Player] Skipped [{}]", path);
 		}
 	}
-	return ret;
 }
 
 template <typename T, typename U>
@@ -24,25 +33,26 @@ constexpr std::size_t getIndex(T const& elems, U const& u) noexcept {
 	for (std::size_t i = 0; i < elems.size(); ++i) {
 		if (elems[i] == u) { return i; }
 	}
-	return std::string::npos;
+	return std::string_view::npos;
 }
 } // namespace
 
 Player::Player(ktl::not_null<capo::Instance*> capo) : m_music(capo), m_capo(capo) {}
 
 bool Player::add(std::span<const str_t> paths) {
-	if (pushValidPaths(paths, m_paths, *m_capo) > 0) { return true; }
-	return false;
+	std::size_t added{};
+	capo::Music music(m_capo);
+	extractPaths(paths, m_paths, music, added);
+	return added > 0;
 }
 
 bool Player::push(std::string path, bool autoplay) {
+	std::size_t added{};
 	capo::Music music(m_capo);
-	if (music.open(path)) {
-		m_paths.push_back(std::move(path));
-		if (autoplay) { navLast(); }
-		return true;
-	}
-	return false;
+	std::string const paths[] = {std::move(path)};
+	extractPaths(std::span(paths), m_paths, music, added);
+	if (added > 0 && autoplay) { navLast(); }
+	return added > 0;
 }
 
 bool Player::pop() noexcept { return pop(path()); }
@@ -50,7 +60,9 @@ bool Player::pop() noexcept { return pop(path()); }
 bool Player::pop(std::string_view path) noexcept {
 	if (m_paths.empty()) { return false; }
 	bool const replay = playing();
-	bool const backstep = getIndex(m_paths, path) <= m_head;
+	auto const index = getIndex(m_paths, path);
+	bool const backstep = index <= m_head;
+	if (index != std::string_view::npos) { Log::info("[Player] Removed [{}]", path); }
 	if (path == this->path()) {
 		stop();
 		std::erase(m_paths, path);
@@ -77,6 +89,7 @@ void Player::clear() {
 	stop();
 	m_paths.clear();
 	m_head = 0;
+	Log::info("[Player] Playlist cleared");
 }
 
 Player& Player::play() {
@@ -116,6 +129,7 @@ Player& Player::mute() {
 	if (!muted()) {
 		m_cachedGain = m_music.gain();
 		m_music.gain(0.0f);
+		Log::info("[Player] Muted");
 	}
 	return *this;
 }
@@ -124,6 +138,7 @@ Player& Player::unmute() {
 	if (muted()) {
 		m_music.gain(m_cachedGain);
 		m_cachedGain = -1.0f;
+		Log::info("[Player] Unmuted");
 	}
 	return *this;
 }
@@ -133,6 +148,7 @@ void Player::update() {
 		if (isLastTrack()) {
 			transition(Status::eStopped);
 		} else {
+			Log::info("[Player] Autoplaying next track");
 			navNext();
 		}
 	}
@@ -158,6 +174,7 @@ Player& Player::swapTracks(std::size_t lhs, std::size_t rhs) noexcept {
 	} else if (m_head == rhs) {
 		m_head = lhs;
 	}
+	Log::info("[Player] Swapped track {} [{}] with track {} [{}]", lhs, m_paths[lhs], rhs, m_paths[rhs]);
 	std::swap(m_paths[lhs], m_paths[rhs]);
 	return *this;
 }
@@ -166,7 +183,7 @@ void Player::transition(Status next) noexcept {
 	switch (m_status) {
 	case Status::eIdle: assert(next != Status::ePaused); break;
 	case Status::ePlaying: assert(anyOf(next, Status::ePaused, Status::eStopped)); break;
-	case Status::ePaused: assert(anyOf(next, Status::ePlaying)); break;
+	case Status::ePaused: assert(anyOf(next, Status::ePlaying, Status::eStopped)); break;
 	case Status::eStopped: break;
 	}
 	m_status = next;

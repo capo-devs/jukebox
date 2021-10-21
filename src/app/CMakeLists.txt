@@ -3,4 +3,6 @@ target_sources(${PROJECT_NAME} PRIVATE
   jukebox.hpp
   player.cpp
   player.hpp
+  playlist.cpp
+  playlist.hpp
 )
