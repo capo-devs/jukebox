@@ -64,8 +64,7 @@
 			"inherits": "clang",
 			"binaryDir": "out/rl",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Release",
-				"VKHPP_VULKAN_DYNAMIC": true
+				"CMAKE_BUILD_TYPE": "Release"
 			}
 		},
 		{

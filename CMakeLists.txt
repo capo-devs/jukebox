@@ -12,7 +12,7 @@ endif()
 
 # project parameters
 set(project_name jukebox)
-set(project_version "0.1.0.0")
+set(project_version "1.0.0.0")
 set(project_version_name jukebox_version) # name of variable in generated header
 set(cxx_standard cxx_std_20)
 
@@ -38,6 +38,15 @@ if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
   endif()
 endif()
 
+# header text
+if(is_root_project)
+  set(build_config ${CMAKE_BUILD_TYPE})
+  if(CMAKE_CONFIGURATION_TYPES)
+  	set(build_config "Multi-config")
+  endif()
+  message(STATUS "[${CMAKE_SYSTEM_PROCESSOR}] [${PLATFORM}] [${CMAKE_GENERATOR}] [${CMAKE_CXX_COMPILER_ID}] [${build_config}]")
+endif()
+
 # compile commands
 if(is_root_project AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -46,13 +55,13 @@ endif()
 
 # version
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in")
-  message(STATUS "Configuring jk_version.hpp")
+  message(STATUS "Configuring ${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/generated/jk_version.hpp")
 endif()
 
 # appveyor
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in")
-  message(STATUS "Configuring appveyor.yml")
+  message(STATUS "Configuring ${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in" "${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml")
 endif()
 

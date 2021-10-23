@@ -5,7 +5,7 @@
 namespace jk {
 namespace {
 template <typename Container>
-void extractPaths(Container const& paths, std::vector<std::string>& out, capo::Music& music, std::size_t total = 0) {
+void extractPaths(Container const& paths, std::vector<std::string>& out, capo::Music& music, std::size_t& out_total) {
 	out.reserve(out.size() + paths.size());
 	for (std::string_view path : paths) {
 		if (path.empty()) { continue; }
@@ -16,12 +16,12 @@ void extractPaths(Container const& paths, std::vector<std::string>& out, capo::M
 			Playlist list;
 			if (auto loaded = list.load(path.data()); loaded > 0) {
 				Log::debug("[Player] loaded {} tracks from playlist [{}]", loaded, path);
-				extractPaths(list.tracks, out, music, total);
+				extractPaths(list.tracks, out, music, out_total);
 			}
 		} else if (music.open(path)) {
 			out.push_back(std::string(path));
 			Log::info("[Player] Added [{}]", path);
-			++total;
+			++out_total;
 		} else {
 			Log::info("[Player] Skipped [{}]", path);
 		}
