@@ -7,4 +7,6 @@ target_sources(${PROJECT_NAME} PRIVATE
   player.hpp
   playlist.cpp
   playlist.hpp
+  props.cpp
+  props.hpp
 )

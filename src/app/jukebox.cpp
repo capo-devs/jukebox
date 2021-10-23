@@ -13,6 +13,18 @@
 namespace jk {
 namespace stdfs = std::filesystem;
 
+template <typename T>
+std::ostream& operator<<(std::ostream& out, TVec2<T> vec) {
+	return out << vec.x << 'x' << vec.y;
+}
+
+template <typename T>
+std::istream& operator>>(std::istream& in, TVec2<T>& out) {
+	char discard;
+	in >> out.x >> discard >> out.y;
+	return in;
+}
+
 namespace {
 template <std::size_t N = 256>
 constexpr BufString<N> filename(std::string_view path, bool ext) noexcept {
@@ -148,6 +160,7 @@ Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_
 	ImGui::GetStyle().ScaleAllSizes(1.33f);
 	ImGui::GetIO().FontGlobalScale = 1.33f;
 	ImGui::GetIO().IniFilename = {};
+	loadConfig();
 }
 
 Jukebox::Status Jukebox::tick(Time) {
@@ -196,6 +209,7 @@ Jukebox::Status Jukebox::tick(Time) {
 	if constexpr (jk_debug) {
 		if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
 	}
+	updateConfig();
 	return Status::eRun;
 }
 
@@ -231,6 +245,9 @@ void Jukebox::mainControls() {
 	int gain = int(m_player.gain() * 100.0f);
 	if (ImGui::SliderInt("##volume", &gain, 0, 100, "%1.2f")) { m_player.gain(float(gain) / 100.0f); }
 	if (m_player.muted() && ImGui::IsItemClicked()) { m_player.unmute(); }
+	if (ImGui::IsItemHovered() && ImGui::GetIO().MouseWheel != 0.0f) {
+		m_player.gain(std::clamp(m_player.gain() + ImGui::GetIO().MouseWheel * 0.1f, 0.0f, 1.0f));
+	}
 }
 
 void Jukebox::seekBar() {
@@ -355,6 +372,38 @@ void Jukebox::muteUnmute() {
 		m_player.unmute();
 	} else {
 		m_player.mute();
+	}
+}
+
+void Jukebox::loadConfig() {
+	m_config.path = "jukebox_config.ini";
+	if (m_config.props.load(m_config.path.data())) {
+		m_player.gain(float(m_config.props.get<int>("volume", 100)) / 100.0f);
+		if (m_config.props.contains("window_size")) {
+			auto const size = m_config.props.get<UVec2>("window_size");
+			glfwSetWindowSize(m_window, int(size.x), int(size.y));
+		}
+		if (m_config.props.contains("window_pos")) {
+			auto const pos = m_config.props.get<UVec2>("window_pos");
+			glfwSetWindowPos(m_window, int(pos.x), int(pos.y));
+		}
+		Log::info("[Jukebox] Loaded config from [{}]", m_config.path);
+	}
+}
+
+void Jukebox::updateConfig() {
+	m_config.props.add(true, "volume", int(m_player.gain() * 100.0f));
+	m_config.props.add(true, "window_size", windowSize(m_window));
+	m_config.props.add(true, "window_pos", windowPos(m_window));
+}
+
+Jukebox::Config::~Config() {
+	if (!path.empty() && !props.empty()) {
+		if (props.save(path.data())) {
+			Log::info("[Jukebox] Config saved to [{}]", path);
+		} else {
+			Log::warn("[Jukebox] Failed to save config to [{}]", path);
+		}
 	}
 }
 } // namespace jk

@@ -58,7 +58,8 @@ class Player {
 
   private:
 	void transition(Status next) noexcept;
-	Player& preloadFail();
+	Player& preloadFail(bool autoplay);
+	bool open();
 
 	capo::Music m_music;
 	std::vector<std::string> m_paths;

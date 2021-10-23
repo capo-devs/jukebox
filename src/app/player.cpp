@@ -78,7 +78,7 @@ bool Player::pop(std::string_view path) noexcept {
 bool Player::open(bool autoplay) {
 	if (empty()) { return false; }
 	stop();
-	if (m_music.open(path())) {
+	if (open()) {
 		if (autoplay) { play(); }
 		return true;
 	}
@@ -97,12 +97,12 @@ Player& Player::play() {
 	if (m_status != Status::ePaused) {
 		if (m_mode == Mode::ePreload) {
 			if (auto pcm = capo::PCM::fromFile(path().data()); !pcm) {
-				return preloadFail();
+				return preloadFail(true);
 			} else {
-				if (!m_music.preload(std::move(*pcm))) { return preloadFail(); }
+				if (!m_music.preload(std::move(*pcm))) { return preloadFail(true); }
 			}
 		} else {
-			if (!m_music.open(path())) { return *this; }
+			if (!open()) { return *this; }
 		}
 	}
 	if (m_status != Status::ePlaying && m_music.play()) { transition(Status::ePlaying); }
@@ -214,10 +214,16 @@ void Player::transition(Status next) noexcept {
 	m_status = next;
 }
 
-Player& Player::preloadFail() {
+Player& Player::preloadFail(bool autoplay) {
 	Log::error("[Player] Failed to preload [{}]!", path());
 	m_mode = Mode::eStream;
-	if (m_music.open(path())) { m_music.play(); }
+	if (open() && autoplay) { m_music.play(); }
 	return *this;
+}
+
+bool Player::open() {
+	if (m_music.open(path())) { return true; }
+	Log::error("[Player] Failed to open [{}]!", path());
+	return false;
 }
 } // namespace jk

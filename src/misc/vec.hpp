@@ -13,4 +13,5 @@ struct TVec2 {
 };
 
 using UVec2 = TVec2<std::uint32_t>;
+using IVec2 = TVec2<std::int32_t>;
 } // namespace jk

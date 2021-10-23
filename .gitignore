@@ -17,3 +17,4 @@ compile_commands.json
 **.flac
 imgui.ini
 jukebox_*.txt
+jukebox_config.ini

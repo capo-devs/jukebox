@@ -1,6 +1,7 @@
 #pragma once
 #include <app/controller.hpp>
 #include <app/player.hpp>
+#include <app/props.hpp>
 #include <ktl/fixed_vector.hpp>
 #include <misc/delegate.hpp>
 #include <misc/delta_time.hpp>
@@ -51,6 +52,16 @@ class Jukebox {
 	Status tick(Time dt);
 
   private:
+	struct Config {
+		Props props;
+		std::string path;
+
+		Config() = default;
+		Config(Config&&) = default;
+		Config& operator=(Config&&) = default;
+		~Config();
+	};
+
 	Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
 
 	void mainControls();
@@ -64,15 +75,19 @@ class Jukebox {
 	void seek(Time stamp);
 	void muteUnmute();
 
+	void loadConfig();
+	void updateConfig();
+
 	capo::Instance m_capo;
 	char m_savePath[256] = "jukebox_playlist.txt";
 	ktl::fixed_vector<Key, 16> m_keys;
 	Player m_player;
 	Controller m_controller;
+	Config m_config;
 	OnKey m_onKey;
 	OnFileDrop m_onFileDrop;
-	LazySliderFloat m_seek;
 	FileBrowser m_browser;
+	LazySliderFloat m_seek;
 	ktl::not_null<GLFWwindow*> m_window;
 	bool m_saveFailure{};
 	bool m_showImguiDemo{};

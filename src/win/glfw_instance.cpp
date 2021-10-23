@@ -31,6 +31,12 @@ UVec2 windowSize(GLFWwindow* window) noexcept {
 	return {std::uint32_t(w), std::uint32_t(h)};
 }
 
+IVec2 windowPos(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetWindowPos(window, &w, &h);
+	return {std::int32_t(w), std::int32_t(h)};
+}
+
 std::optional<GlfwInstance> GlfwInstance::make() noexcept {
 	glfwSetErrorCallback(&onGlfwError);
 	GlfwInstance ret;

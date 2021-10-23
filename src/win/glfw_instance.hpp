@@ -15,6 +15,7 @@ using str_t = char const*;
 
 UVec2 framebufferSize(GLFWwindow* window) noexcept;
 UVec2 windowSize(GLFWwindow* window) noexcept;
+IVec2 windowPos(GLFWwindow* window) noexcept;
 
 using OnKey = Delegate<Key>;
 using OnIconify = Delegate<bool>;
