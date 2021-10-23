@@ -91,3 +91,13 @@ target_link_libraries(${PROJECT_NAME}
     capo::options
     dear_imgui::dear_imgui
 )
+if(PLATFORM STREQUAL "Win64" AND NOT WIN64_GCC)
+	if(MSVC)
+		target_link_options(${PROJECT_NAME} PRIVATE
+			/ENTRY:mainCRTStartup                              # Link to main() and not WinMain()
+			/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>   # Spawn a console in Debug
+		)
+	else()
+		target_link_options(${PROJECT_NAME} PRIVATE -Wl,/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>,/ENTRY:mainCRTStartup)
+	endif()
+endif()
