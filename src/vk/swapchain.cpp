@@ -1,6 +1,5 @@
 #include <jk_common.hpp>
 #include <vk/swapchain.hpp>
-#include <limits>
 
 namespace jk {
 namespace {
