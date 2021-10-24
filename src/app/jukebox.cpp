@@ -321,7 +321,6 @@ void Jukebox::tracklist() {
 			if (!select && ImGui::IsItemClicked(ImGuiMouseButton_Right)) { pop = path; }
 			++idx;
 		}
-		ImGui::EndChild();
 		if (select) {
 			m_player.navIndex(*select);
 			if (!m_player.playing()) { m_player.play(); }
@@ -329,6 +328,7 @@ void Jukebox::tracklist() {
 			m_player.pop(*pop);
 		}
 	}
+	ImGui::EndChild();
 }
 
 void Jukebox::playPause() {
