@@ -76,6 +76,7 @@ GLFWwindow* WindowBuilder::make() noexcept {
 		} else if (m_flags.test(Flag::eCentre)) {
 			glfwSetWindowPos(ret, (m_modeX - m_width) / 2, (m_modeY - m_height) / 2);
 		}
+		glfwSetWindowSizeLimits(ret, m_min_width, m_min_height, GLFW_DONT_CARE, GLFW_DONT_CARE);
 		if (m_flags.test(Flag::eShow)) { glfwShowWindow(ret); }
 	} else {
 		Log::error("Failed to create window");
