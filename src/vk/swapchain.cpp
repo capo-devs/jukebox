@@ -66,7 +66,11 @@ Swapchain::Factory::Info Swapchain::Factory::makeInfo(GFX const& gfx, UVec2 exte
 	} else {
 		ret.extent = clamp(extent, caps.minImageExtent, std::max(caps.maxImageExtent, caps.minImageExtent));
 	}
-	ret.imageCount = std::clamp(3U, caps.minImageCount, caps.maxImageCount);
+	if (caps.maxImageCount == 0) {
+		ret.imageCount = std::min(3U, caps.minImageCount);
+	} else {
+		ret.imageCount = std::clamp(3U, caps.minImageCount, caps.maxImageCount);
+	}
 	return ret;
 }
 

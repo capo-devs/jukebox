@@ -42,6 +42,7 @@ class GlfwInstance {
 class WindowBuilder {
   public:
 	WindowBuilder& size(int width, int height) noexcept { return (m_width = width, m_height = height, *this); }
+	WindowBuilder& minSize(int min_width, int min_height) noexcept { return (m_min_width = min_width, m_min_height = min_height, *this); }
 	WindowBuilder& title(std::string_view value) noexcept { return (m_title = value, *this); }
 	WindowBuilder& show(bool value = true) noexcept { return (m_flags.assign(Flag::eShow, value), *this); }
 	WindowBuilder& fixedSize(bool value = true) noexcept { return (m_flags.assign(Flag::eFixedSize, value), *this); }
@@ -69,6 +70,8 @@ class WindowBuilder {
 	std::string_view m_title = "Untitled";
 	int m_width = 64;
 	int m_height = 64;
+	int m_min_width = 64;
+	int m_min_height = 64;
 	int m_modeX = 0;
 	int m_modeY = 0;
 	int m_x = 0;
