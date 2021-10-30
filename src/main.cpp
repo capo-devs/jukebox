@@ -11,13 +11,13 @@
 #include <imgui.h>
 
 namespace {
-jk::BufString<128> windowTitle(std::string_view appName) {
+ktl::stack_string<128> windowTitle(std::string_view appName) {
 	if constexpr (jk_debug) {
 		auto const app = jk::Version::app().toString(true);
-		return jk::BufString<128>("%s %s | Debug", appName.data(), app.data());
+		return ktl::stack_string<128>("%s %s | Debug", appName.data(), app.data());
 	} else {
 		auto const app = jk::Version::app().toString();
-		return jk::BufString<128>("%s %s", appName.data(), app.data());
+		return ktl::stack_string<128>("%s %s", appName.data(), app.data());
 	}
 }
 } // namespace

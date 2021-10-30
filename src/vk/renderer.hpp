@@ -1,6 +1,6 @@
 #pragma once
+#include <ktl/delegate.hpp>
 #include <ktl/enum_flags/enum_flags.hpp>
-#include <misc/delegate.hpp>
 #include <vk/swapchain.hpp>
 #include <optional>
 
@@ -8,7 +8,7 @@ namespace jk {
 class Renderer {
   public:
 	using Clear = std::array<float, 4>;
-	using IconifySignal = Delegate<bool>::Signal;
+	using IconifySignal = ktl::delegate<bool>::signal;
 	static constexpr std::size_t buffering_v = 2;
 
 	Renderer(GFX const& gfx, Swapchain::GetExtent&& getExtent, IconifySignal&& onIconify);

@@ -2,8 +2,8 @@
 #include <app/controller.hpp>
 #include <app/player.hpp>
 #include <app/props.hpp>
+#include <ktl/delegate.hpp>
 #include <ktl/fixed_vector.hpp>
-#include <misc/delegate.hpp>
 #include <misc/delta_time.hpp>
 #include <memory>
 #include <optional>
@@ -41,8 +41,8 @@ class FileBrowser {
 class Jukebox {
   public:
 	enum class Status { eRun, eQuit };
-	using OnKey = Delegate<Key>::Signal;
-	using OnFileDrop = Delegate<std::span<str_t const>>::Signal;
+	using OnKey = ktl::delegate<Key>::signal;
+	using OnFileDrop = ktl::delegate<std::span<str_t const>>::signal;
 
 	static std::unique_ptr<Jukebox> make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
 

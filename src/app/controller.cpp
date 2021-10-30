@@ -14,11 +14,19 @@ float seekTime(Key const& key) noexcept {
 }
 } // namespace
 
-Controller::Controller(Input::Signal&& signal) : m_signal(std::move(signal)) {
+Controller::Controller(Input::signal&& signal) : m_signal(std::move(signal)) {
 	m_signal += [this](Key key) { onKey(key); };
 }
 
 void Controller::onKey(Key key) noexcept {
+	if (key.press() || key.repeat()) {
+		float const magnitude = key.repeat() ? 0.01f : 0.05f;
+		switch (key.code) {
+		case GLFW_KEY_UP: add(Action::eVolume, magnitude); break;
+		case GLFW_KEY_DOWN: add(Action::eVolume, -magnitude); break;
+		default: break;
+		}
+	}
 	if (key.release()) {
 		switch (key.code) {
 		case GLFW_KEY_SPACE:
@@ -27,8 +35,6 @@ void Controller::onKey(Key key) noexcept {
 		case GLFW_KEY_LEFT:
 		case GLFW_KEY_RIGHT: add(Action::eSeek, seekTime(key)); break;
 		case GLFW_KEY_M: add(Action::eMute); break;
-		case GLFW_KEY_UP: add(Action::eVolume, 0.1f); break;
-		case GLFW_KEY_DOWN: add(Action::eVolume, -0.1f); break;
 		default: break;
 		}
 		if (key.all(GLFW_MOD_CONTROL)) {
