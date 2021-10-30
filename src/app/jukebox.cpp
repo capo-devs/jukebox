@@ -142,14 +142,18 @@ FileBrowser::~FileBrowser() noexcept = default;
 std::string FileBrowser::operator()() { return (*m_impl)(m_show).generic_string(); }
 
 std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
-	auto ret = std::unique_ptr<Jukebox>(new Jukebox(instance, window));
-	if (!ret->m_capo.valid()) { return {}; }
-	return ret;
+	auto capo = std::make_unique<capo::Instance>();
+	if (!capo->valid()) {
+		Log::error("[Jukebox] Failed to initialize capo instance!");
+		return {};
+	}
+	return std::unique_ptr<Jukebox>(new Jukebox(instance, window, std::move(capo)));
 }
 
-Jukebox::Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) : m_player(&m_capo), m_controller(instance.onKey(window)), m_window(window) {
-	m_onKey = instance.onKey(window);
-	m_onFileDrop = instance.onFileDrop(window);
+Jukebox::Jukebox(GlfwInstance& glfw, ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo)
+	: m_capo(std::move(capo)), m_player(m_capo.get()), m_controller(glfw.onKey(window)), m_window(window) {
+	m_onKey = glfw.onKey(window);
+	m_onFileDrop = glfw.onFileDrop(window);
 	m_onKey += [this](Key const& key) {
 		if (m_keys.has_space()) { m_keys.push_back(key); }
 	};
