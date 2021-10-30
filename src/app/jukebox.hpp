@@ -62,7 +62,7 @@ class Jukebox {
 		~Config();
 	};
 
-	Jukebox(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
+	Jukebox(GlfwInstance& glfw, ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo);
 
 	void mainControls();
 	void seekBar();
@@ -78,10 +78,13 @@ class Jukebox {
 	void loadConfig();
 	void updateConfig();
 
-	capo::Instance m_capo;
+	// Heavy members
 	char m_savePath[256] = "jukebox_playlist.txt";
 	ktl::fixed_vector<Key, 16> m_keys;
+	// Ordered members
+	std::unique_ptr<capo::Instance> m_capo;
 	Player m_player;
+	// Regular members
 	Controller m_controller;
 	Config m_config;
 	OnKey m_onKey;
