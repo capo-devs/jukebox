@@ -1,5 +1,5 @@
 #pragma once
-#include <misc/buf_string.hpp>
+#include <ktl/stack_string.hpp>
 #include <sstream>
 #include <string>
 #include <unordered_map>

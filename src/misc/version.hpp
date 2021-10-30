@@ -1,5 +1,5 @@
 #pragma once
-#include <misc/buf_string.hpp>
+#include <ktl/stack_string.hpp>
 #include <compare>
 
 namespace jk {
@@ -15,6 +15,6 @@ struct Version {
 	constexpr auto operator<=>(Version const&) const = default;
 	constexpr bool compatible(Version const& target) const noexcept { return target <= *this; }
 
-	BufString<64> toString(bool full = false) const noexcept;
+	ktl::stack_string<64> toString(bool full = false) const noexcept;
 };
 } // namespace jk

@@ -12,7 +12,7 @@ endif()
 
 # project parameters
 set(project_name jukebox)
-set(project_version "1.0.0.0")
+set(project_version "1.0.1.0")
 set(project_version_name jukebox_version) # name of variable in generated header
 set(cxx_standard cxx_std_20)
 
@@ -67,6 +67,7 @@ endif()
 
 # capo
 set(CAPO_BUILD_EXAMPLE OFF)
+set(CAPO_VALID_IF_INACTIVE OFF)
 add_subdirectory(ext/capo)
 
 # vulkan-hpp

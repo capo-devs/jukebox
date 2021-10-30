@@ -56,9 +56,9 @@ GlfwInstance::~GlfwInstance() noexcept {
 	if (m_init) { glfwTerminate(); }
 }
 
-OnKey::Signal GlfwInstance::onKey(GLFWwindow* window) { return g_callbacks[window].onKey.signal(); }
-OnIconify::Signal GlfwInstance::onIconify(GLFWwindow* window) { return g_callbacks[window].onIconify.signal(); }
-OnFileDrop::Signal GlfwInstance::onFileDrop(GLFWwindow* window) { return g_callbacks[window].onFileDrop.signal(); }
+OnKey::signal GlfwInstance::onKey(GLFWwindow* window) { return g_callbacks[window].onKey.make_signal(); }
+OnIconify::signal GlfwInstance::onIconify(GLFWwindow* window) { return g_callbacks[window].onIconify.make_signal(); }
+OnFileDrop::signal GlfwInstance::onFileDrop(GLFWwindow* window) { return g_callbacks[window].onFileDrop.make_signal(); }
 
 void GlfwInstance::poll() noexcept { glfwPollEvents(); }
 

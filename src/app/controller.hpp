@@ -1,6 +1,6 @@
 #pragma once
+#include <ktl/delegate.hpp>
 #include <ktl/fixed_vector.hpp>
-#include <misc/delegate.hpp>
 #include <win/key.hpp>
 
 namespace jk {
@@ -14,9 +14,9 @@ class Controller {
 	};
 	using ResponseList = ktl::fixed_vector<Response, 4>;
 
-	using Input = Delegate<Key>;
+	using Input = ktl::delegate<Key>;
 
-	Controller(Input::Signal&& signal);
+	Controller(Input::signal&& signal);
 
 	ResponseList update() noexcept { return std::exchange(m_list, ResponseList()); }
 
@@ -25,6 +25,6 @@ class Controller {
 	void add(Action action, float value = {}) noexcept;
 
 	ResponseList m_list;
-	Input::Signal m_signal;
+	Input::signal m_signal;
 };
 } // namespace jk

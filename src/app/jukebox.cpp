@@ -1,7 +1,7 @@
 #include <app/jukebox.hpp>
 #include <app/playlist.hpp>
 #include <capo/utils/format_unit.hpp>
-#include <misc/buf_string.hpp>
+#include <ktl/stack_string.hpp>
 #include <misc/log.hpp>
 #include <win/glfw_instance.hpp>
 #include <imgui.h>
@@ -27,7 +27,7 @@ std::istream& operator>>(std::istream& in, TVec2<T>& out) {
 
 namespace {
 template <std::size_t N = 256>
-constexpr BufString<N> filename(std::string_view path, bool ext) noexcept {
+constexpr ktl::stack_string<N> filename(std::string_view path, bool ext) noexcept {
 	if (path.empty()) { return "--"; }
 	auto it = path.find_last_of('/');
 	if (it == std::string_view::npos) { it = path.find_last_of('\\'); }
@@ -36,7 +36,7 @@ constexpr BufString<N> filename(std::string_view path, bool ext) noexcept {
 	return path.size() < N ? path : path.substr(path.size() - N);
 }
 
-BufString<16> length(capo::utils::Length const& len) noexcept {
+ktl::stack_string<16> length(capo::utils::Length const& len) noexcept {
 	static constexpr std::string_view options[] = {"%ld:0%ld:0%ld", "%ld:0%ld:%ld", "%ld:%ld:0%ld"};
 	std::string_view fmt = "%ld:%ld:%ld";
 	if (len.minutes < stdch::minutes(10)) {
@@ -48,7 +48,7 @@ BufString<16> length(capo::utils::Length const& len) noexcept {
 	} else {
 		if (len.seconds < 10s) { fmt = options[2]; }
 	}
-	return BufString<16>(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
+	return ktl::stack_string<16>(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
 }
 
 [[maybe_unused]] void tooltipMarker(char const* desc, char const* marker = "(?)") {
@@ -280,7 +280,7 @@ void Jukebox::trackControls() {
 		}
 		if (ImGui::BeginPopup("save_playlist")) {
 			if (m_saveFailure) {
-				auto text = BufString<512>("Save to %s failed!", m_savePath);
+				auto text = ktl::stack_string<512>("Save to %s failed!", m_savePath);
 				ImGui::Text("%s", text.data());
 			} else {
 				ImGui::Text("Path:");

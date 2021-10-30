@@ -29,11 +29,11 @@ Version Version::app() noexcept {
 	return ret;
 }
 
-BufString<64> Version::toString(bool full) const noexcept {
+ktl::stack_string<64> Version::toString(bool full) const noexcept {
 	if (full) {
-		return BufString<64>("v%d.%d.%d.%d", major, minor, patch, tweak);
+		return ktl::stack_string<64>("v%d.%d.%d.%d", major, minor, patch, tweak);
 	} else {
-		return BufString<64>("v%d.%d", major, minor);
+		return ktl::stack_string<64>("v%d.%d", major, minor);
 	}
 }
 } // namespace jk

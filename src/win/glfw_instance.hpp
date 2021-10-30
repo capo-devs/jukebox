@@ -1,6 +1,6 @@
 #pragma once
+#include <ktl/delegate.hpp>
 #include <ktl/enum_flags/enum_flags.hpp>
-#include <misc/delegate.hpp>
 #include <misc/vec.hpp>
 #include <win/key.hpp>
 #include <optional>
@@ -17,9 +17,9 @@ UVec2 framebufferSize(GLFWwindow* window) noexcept;
 UVec2 windowSize(GLFWwindow* window) noexcept;
 IVec2 windowPos(GLFWwindow* window) noexcept;
 
-using OnKey = Delegate<Key>;
-using OnIconify = Delegate<bool>;
-using OnFileDrop = Delegate<std::span<str_t const>>;
+using OnKey = ktl::delegate<Key>;
+using OnIconify = ktl::delegate<bool>;
+using OnFileDrop = ktl::delegate<std::span<str_t const>>;
 
 class GlfwInstance {
   public:
@@ -30,9 +30,9 @@ class GlfwInstance {
 	GlfwInstance& operator=(GlfwInstance rhs) noexcept { return (std::swap(m_init, rhs.m_init), *this); }
 	~GlfwInstance() noexcept;
 
-	OnKey::Signal onKey(GLFWwindow* window);
-	OnIconify::Signal onIconify(GLFWwindow* window);
-	OnFileDrop::Signal onFileDrop(GLFWwindow* window);
+	OnKey::signal onKey(GLFWwindow* window);
+	OnIconify::signal onIconify(GLFWwindow* window);
+	OnFileDrop::signal onFileDrop(GLFWwindow* window);
 	void poll() noexcept;
 
   private:
