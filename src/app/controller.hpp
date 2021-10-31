@@ -17,12 +17,15 @@ class Controller {
 	using Input = ktl::delegate<Key>;
 
 	Controller(Input::signal&& signal);
+	Controller(Controller&&) noexcept;
+	Controller& operator=(Controller&&) noexcept;
 
 	ResponseList update() noexcept { return std::exchange(m_list, ResponseList()); }
 
   private:
 	void onKey(Key key) noexcept;
 	void add(Action action, float value = {}) noexcept;
+	void replaceBindings() noexcept;
 
 	ResponseList m_list;
 	Input::signal m_signal;

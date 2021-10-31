@@ -141,30 +141,42 @@ FileBrowser::~FileBrowser() noexcept = default;
 
 std::string FileBrowser::operator()() { return (*m_impl)(m_show).generic_string(); }
 
-std::unique_ptr<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
+std::optional<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
 	auto capo = std::make_unique<capo::Instance>();
 	if (!capo->valid()) {
 		Log::error("[Jukebox] Failed to initialize capo instance!");
 		return {};
 	}
-	return std::unique_ptr<Jukebox>(new Jukebox(instance, window, std::move(capo)));
+	return Jukebox(instance, window, std::move(capo));
 }
 
 Jukebox::Jukebox(GlfwInstance& glfw, ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo)
-	: m_capo(std::move(capo)), m_player(m_capo.get()), m_controller(glfw.onKey(window)), m_window(window) {
-	m_onKey = glfw.onKey(window);
-	m_onFileDrop = glfw.onFileDrop(window);
-	m_onKey += [this](Key const& key) {
-		if (m_keys.has_space()) { m_keys.push_back(key); }
-	};
-	m_onFileDrop += [this](std::span<str_t const> paths) {
-		bool const empty = m_player.empty();
-		if (m_player.add(paths) && empty) { m_player.play(); }
-	};
+	: m_capo(std::move(capo)), m_window(window), m_player(m_capo.get()), m_controller(glfw.onKey(window)) {
+	m_data.onKey = glfw.onKey(window);
+	m_data.onFileDrop = glfw.onFileDrop(window);
 	ImGui::GetStyle().ScaleAllSizes(1.33f);
 	ImGui::GetIO().FontGlobalScale = 1.33f;
 	ImGui::GetIO().IniFilename = {};
 	loadConfig();
+	m_data.onKey += [this](Key const& key) { onKey(key); };
+	m_data.onFileDrop += [this](std::span<str_t const> paths) { onFileDrop(paths); };
+}
+
+Jukebox::Jukebox(Jukebox&& rhs) noexcept
+	: m_capo(std::move(rhs.m_capo)), m_window(rhs.m_window), m_player(m_capo.get()), m_controller(std::move(rhs.m_controller)), m_data(std::move(rhs.m_data)) {
+	replaceBindings();
+}
+
+Jukebox& Jukebox::operator=(Jukebox&& rhs) noexcept {
+	if (&rhs != this) {
+		m_capo = std::move(rhs.m_capo);
+		m_window = rhs.m_window;
+		m_player = std::move(rhs.m_player);
+		m_controller = std::move(rhs.m_controller);
+		m_data = std::move(rhs.m_data);
+		replaceBindings();
+	}
+	return *this;
 }
 
 Jukebox::Status Jukebox::tick(Time) {
@@ -183,15 +195,11 @@ Jukebox::Status Jukebox::tick(Time) {
 		case Action::eNone: break;
 		}
 	}
-	auto keys = std::exchange(m_keys, {});
-	for (Key const& key : keys) {
-		if (key.press() && key.is(GLFW_KEY_SPACE) && key.any(GLFW_MOD_SHIFT | GLFW_MOD_CONTROL)) { Log::debug("space pressed"); }
-		if constexpr (jk_debug) {
-			if (key.press() && key.is(GLFW_KEY_I) && key.all(GLFW_MOD_CONTROL)) { m_showImguiDemo = !m_showImguiDemo; }
-		}
-	}
+	auto keys = std::exchange(m_data.keys, {});
 	if constexpr (jk_debug) {
-		if (Key::chord(keys, GLFW_KEY_W, GLFW_MOD_CONTROL)) { return Status::eQuit; }
+		for (Key const& key : keys) {
+			if (key.press() && key.is(GLFW_KEY_I) && key.all(GLFW_MOD_CONTROL)) { m_data.flags.flip(Flag::eShowImGuiDemo); }
+		}
 	}
 	static constexpr auto flags =
 		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
@@ -211,7 +219,11 @@ Jukebox::Status Jukebox::tick(Time) {
 	}
 	ImGui::End();
 	if constexpr (jk_debug) {
-		if (m_showImguiDemo) { ImGui::ShowDemoWindow(&m_showImguiDemo); }
+		if (m_data.flags[Flag::eShowImGuiDemo]) {
+			bool b = true;
+			ImGui::ShowDemoWindow(&b);
+			m_data.flags.assign(Flag::eShowImGuiDemo, b);
+		}
 	}
 	updateConfig();
 	return Status::eRun;
@@ -264,7 +276,7 @@ void Jukebox::seekBar() {
 	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(totalLength.data()).x - 10.0f);
 	ImGui::Text("%s", totalLength.data());
 	ImGui::SetNextItemWidth(-1.0f);
-	if (auto seek = m_seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
+	if (auto seek = m_data.seek("##seek", pos, 0.0f, total.count())) { m_player.seek(capo::Time(*seek)); }
 }
 
 void Jukebox::trackControls() {
@@ -273,28 +285,28 @@ void Jukebox::trackControls() {
 	ImGui::SameLine();
 	if (ImGui::ArrowButtonEx("move_up", ImGuiDir_Up, upDnSize)) { m_player.swapBehind(); }
 	ImGui::SameLine();
-	if (ImGui::Button("+##push", upDnSize)) { m_browser.m_show = !m_browser.m_show; }
+	if (ImGui::Button("+##push", upDnSize)) { m_data.browser.m_show = !m_data.browser.m_show; }
 	if (!m_player.empty()) {
 		ImGui::SameLine();
 		if (ImGui::Button("Clear", {0.0f, upDnSize.y})) { m_player.clear(); }
 		ImGui::SameLine();
 		if (ImGui::Button("Save", {0.0f, upDnSize.y})) {
 			ImGui::OpenPopup("save_playlist");
-			m_saveFailure = {};
+			m_data.flags.reset(Flag::eSaveFailure);
 		}
 		if (ImGui::BeginPopup("save_playlist")) {
-			if (m_saveFailure) {
-				auto text = ktl::stack_string<512>("Save to %s failed!", m_savePath);
+			if (m_data.flags[Flag::eSaveFailure]) {
+				auto text = ktl::stack_string<512>("Save to %s failed!", m_data.savePath);
 				ImGui::Text("%s", text.data());
 			} else {
 				ImGui::Text("Path:");
 				ImGui::SameLine();
-				ImGui::InputText("##save_path", m_savePath, IM_ARRAYSIZE(m_savePath));
+				ImGui::InputText("##save_path", m_data.savePath.c_str(), m_data.savePath.capacity());
 			}
 			if (ImGui::Button("OK")) {
 				Playlist list{{m_player.paths().begin(), m_player.paths().end()}};
-				if (!m_saveFailure && !list.save(m_savePath)) {
-					m_saveFailure = true;
+				if (!m_data.flags[Flag::eSaveFailure] && !list.save(m_data.savePath.data())) {
+					m_data.flags.set(Flag::eSaveFailure);
 				} else {
 					ImGui::CloseCurrentPopup();
 				}
@@ -302,7 +314,7 @@ void Jukebox::trackControls() {
 			ImGui::EndPopup();
 		}
 	}
-	if (auto path = m_browser(); !path.empty()) { m_player.push(std::move(path), false); }
+	if (auto path = m_data.browser(); !path.empty()) { m_player.push(std::move(path), false); }
 	ImGui::SameLine();
 	bool preload = m_player.mode() == Player::Mode::ePreload;
 	if (ImGui::Checkbox("Preload", &preload)) { m_player.mode(preload ? Player::Mode::ePreload : Player::Mode::eStream); }
@@ -380,25 +392,39 @@ void Jukebox::muteUnmute() {
 }
 
 void Jukebox::loadConfig() {
-	m_config.path = "jukebox_config.ini";
-	if (m_config.props.load(m_config.path.data())) {
-		m_player.gain(float(m_config.props.get<int>("volume", 100)) / 100.0f);
-		if (m_config.props.contains("window_size")) {
-			auto const size = m_config.props.get<UVec2>("window_size");
+	m_data.config.path = "jukebox_config.ini";
+	if (m_data.config.props.load(m_data.config.path.data())) {
+		m_player.gain(float(m_data.config.props.get<int>("volume", 100)) / 100.0f);
+		if (m_data.config.props.contains("window_size")) {
+			auto const size = m_data.config.props.get<UVec2>("window_size");
 			glfwSetWindowSize(m_window, int(size.x), int(size.y));
 		}
-		if (m_config.props.contains("window_pos")) {
-			auto const pos = m_config.props.get<UVec2>("window_pos");
+		if (m_data.config.props.contains("window_pos")) {
+			auto const pos = m_data.config.props.get<UVec2>("window_pos");
 			glfwSetWindowPos(m_window, int(pos.x), int(pos.y));
 		}
-		Log::info("[Jukebox] Loaded config from [{}]", m_config.path);
+		Log::info("[Jukebox] Loaded config from [{}]", m_data.config.path);
 	}
 }
 
 void Jukebox::updateConfig() {
-	m_config.props.add(true, "volume", int(m_player.gain() * 100.0f));
-	m_config.props.add(true, "window_size", windowSize(m_window));
-	m_config.props.add(true, "window_pos", windowPos(m_window));
+	m_data.config.props.add(true, "volume", int(m_player.gain() * 100.0f));
+	m_data.config.props.add(true, "window_size", windowSize(m_window));
+	m_data.config.props.add(true, "window_pos", windowPos(m_window));
+}
+
+void Jukebox::onKey(Key const& key) {
+	if (m_data.keys.has_space()) { m_data.keys.push_back(key); }
+}
+
+void Jukebox::onFileDrop(std::span<str_t const> paths) {
+	bool const empty = m_player.empty();
+	if (m_player.add(paths) && empty) { m_player.play(); }
+}
+
+void Jukebox::replaceBindings() noexcept {
+	m_data.onKey.replace(m_data.onKey.tag(), [this](Key const& key) { onKey(key); });
+	m_data.onFileDrop.replace(m_data.onFileDrop.tag(), [this](std::span<str_t const> paths) { onFileDrop(paths); });
 }
 
 Jukebox::Config::~Config() {

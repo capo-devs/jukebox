@@ -18,6 +18,17 @@ Controller::Controller(Input::signal&& signal) : m_signal(std::move(signal)) {
 	m_signal += [this](Key key) { onKey(key); };
 }
 
+Controller::Controller(Controller&& rhs) noexcept : m_list(std::move(rhs.m_list)), m_signal(std::move(rhs.m_signal)) { replaceBindings(); }
+
+Controller& Controller::operator=(Controller&& rhs) noexcept {
+	if (&rhs != this) {
+		m_list = std::move(rhs.m_list);
+		m_signal = std::move(rhs.m_signal);
+		replaceBindings();
+	}
+	return *this;
+}
+
 void Controller::onKey(Key key) noexcept {
 	if (key.press() || key.repeat()) {
 		float const magnitude = key.repeat() ? 0.01f : 0.05f;
@@ -50,5 +61,9 @@ void Controller::onKey(Key key) noexcept {
 
 void Controller::add(Action action, float value) noexcept {
 	if (m_list.has_space()) { m_list.push_back({value, action}); }
+}
+
+void Controller::replaceBindings() noexcept {
+	m_signal.replace(m_signal.tag(), [this](Key key) { onKey(key); });
 }
 } // namespace jk

@@ -3,6 +3,7 @@
 #include <app/player.hpp>
 #include <app/props.hpp>
 #include <ktl/delegate.hpp>
+#include <ktl/enum_flags/enum_flags.hpp>
 #include <ktl/fixed_vector.hpp>
 #include <misc/delta_time.hpp>
 #include <memory>
@@ -44,14 +45,17 @@ class Jukebox {
 	using OnKey = ktl::delegate<Key>::signal;
 	using OnFileDrop = ktl::delegate<std::span<str_t const>>::signal;
 
-	static std::unique_ptr<Jukebox> make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
+	static std::optional<Jukebox> make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
 
-	Jukebox(Jukebox&&) = delete;
-	Jukebox& operator=(Jukebox&&) = delete;
+	Jukebox(Jukebox&&) noexcept;
+	Jukebox& operator=(Jukebox&&) noexcept;
 
 	Status tick(Time dt);
 
   private:
+	enum class Flag { eSaveFailure, eShowImGuiDemo };
+	using Flags = ktl::enum_flags<Flag>;
+
 	struct Config {
 		Props props;
 		std::string path;
@@ -78,21 +82,25 @@ class Jukebox {
 	void loadConfig();
 	void updateConfig();
 
-	// Heavy members
-	char m_savePath[256] = "jukebox_playlist.txt";
-	ktl::fixed_vector<Key, 16> m_keys;
+	void onKey(Key const& key);
+	void onFileDrop(std::span<str_t const> paths);
+	void replaceBindings() noexcept;
+
 	// Ordered members
 	std::unique_ptr<capo::Instance> m_capo;
-	Player m_player;
-	// Regular members
-	Controller m_controller;
-	Config m_config;
-	OnKey m_onKey;
-	OnFileDrop m_onFileDrop;
-	FileBrowser m_browser;
-	LazySliderFloat m_seek;
 	ktl::not_null<GLFWwindow*> m_window;
-	bool m_saveFailure{};
-	bool m_showImguiDemo{};
+	Player m_player;
+	Controller m_controller;
+
+	struct {
+		ktl::stack_string<256> savePath = "jukebox_playlist.txt";
+		ktl::fixed_vector<Key, 16> keys;
+		Config config;
+		OnKey onKey;
+		OnFileDrop onFileDrop;
+		FileBrowser browser;
+		LazySliderFloat seek;
+		Flags flags;
+	} m_data;
 };
 } // namespace jk
