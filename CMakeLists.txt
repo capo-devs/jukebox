@@ -15,6 +15,7 @@ set(project_name jukebox)
 set(project_version "1.0.1.0")
 set(project_version_name jukebox_version) # name of variable in generated header
 set(cxx_standard cxx_std_20)
+set(cmake_var_prefix JUKEBOX)
 
 project(${project_name} VERSION "${project_version}")
 set(is_root_project OFF)	# indicate if this is the top-level project
@@ -48,9 +49,10 @@ if(is_root_project)
 endif()
 
 # compile commands
-if(is_root_project AND "${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+if(is_root_project AND NOT "${CI_BUILD}")
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-  message(STATUS "Exporting compile commands")
+  set(${cmake_var_prefix}_CONFIGURE_CI_SCRIPTS ON)
+  message(STATUS "${PROJECT_NAME}: Exporting compile commands, configuring CI scripts")
 endif()
 
 # version
@@ -60,7 +62,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/jk_version.hpp.in")
 endif()
 
 # appveyor
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in")
+if(NOT "${CI_BUILD}" AND "${${cmake_var_prefix}_CONFIGURE_CI_SCRIPTS}" AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in")
   message(STATUS "Configuring ${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in")
   configure_file("${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml.in" "${CMAKE_CURRENT_SOURCE_DIR}/.appveyor.yml")
 endif()
