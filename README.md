@@ -4,7 +4,7 @@
 
 #### Using C++20, capo, Vulkan, and Dear ImGui
 
-[![Build status](https://ci.appveyor.com/api/projects/status/2muv5wr87lq6te9c/branch/main?svg=true)](https://ci.appveyor.com/project/karnkaul/jukebox/branch/main)
+[![Build Status](https://github.com/capo-devs/jukebox/actions/workflows/ci.yml/badge.svg)](https://github.com/capo-devs/jukebox/actions/workflows/ci.yml)
 
 ![Screenshot](resources/screenshot_02.png)
 
@@ -17,10 +17,7 @@
 #### Dependencies
 
 - [capo](https://github.com/capo-devs/capo)
-- [Dear ImGui](https://github.com/ocornut/imgui)
-- [vk-bootstrap](https://github.com/charles-lunarg/vk-bootstrap)
-- [VulkanHPP](https://github.com/KhronosGroup/Vulkan-Hpp)
-- [glfw](https://github.com/glfw/glfw)
+- [dibs](https://github.com/karnkaul/dibs)
 
 [Original repository](https://github.com/capo-devs/jukebox)
 

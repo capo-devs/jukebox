@@ -12,7 +12,7 @@ endif()
 
 # project parameters
 set(project_name jukebox)
-set(project_version "1.0.1.0")
+set(project_version "1.0.2")
 set(project_version_name jukebox_version) # name of variable in generated header
 set(cxx_standard cxx_std_20)
 set(cmake_var_prefix JUKEBOX)
@@ -26,7 +26,20 @@ endif()
 
 # includes
 include(cmake/platform.cmake)
-include(cmake/utils.cmake)
+
+# cmake-utils
+include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_Declare(
+  cmake-utils
+  GIT_REPOSITORY https://github.com/karnkaul/cmake-utils
+  GIT_TAG v1.0.1
+  GIT_SHALLOW ON
+)
+FetchContent_MakeAvailable(cmake-utils)
+FetchContent_GetProperties(cmake-utils)
+
+include("${cmake-utils_SOURCE_DIR}/cmake-utils.cmake")
 
 # git operations
 find_package(Git QUIET)
@@ -43,7 +56,7 @@ endif()
 if(is_root_project)
   set(build_config ${CMAKE_BUILD_TYPE})
   if(CMAKE_CONFIGURATION_TYPES)
-  	set(build_config "Multi-config")
+    set(build_config "Multi-config")
   endif()
   message(STATUS "[${CMAKE_SYSTEM_PROCESSOR}] [${PLATFORM}] [${CMAKE_GENERATOR}] [${CMAKE_CXX_COMPILER_ID}] [${build_config}]")
 endif()
@@ -72,44 +85,31 @@ set(CAPO_BUILD_EXAMPLE OFF)
 set(CAPO_VALID_IF_INACTIVE OFF)
 add_subdirectory(ext/capo)
 
-# vulkan-hpp
-add_subdirectory(ext/vulkan_hpp)
-
-# vk-bootstrap
-set(VK_BOOTSTRAP_VULKAN_HEADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ext/vulkan_hpp/include")
-add_subdirectory(ext/vk_bootstrap)
-
-# glfw
-set(GLFW_INSTALL OFF CACHE INTERNAL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE INTERNAL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE INTERNAL "" FORCE)
-add_subdirectory(ext/glfw)
-
-# imgui
-add_subdirectory(ext/dear_imgui)
+# dibs
+set(DIBS_BUILD_EXAMPLE OFF)
+add_subdirectory(ext/dibs)
 
 # exe
 add_executable(${PROJECT_NAME})
 add_subdirectory(src)
-target_source_group(${PROJECT_NAME})
+target_source_group(TARGET ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE include src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:JK_DEBUG>)
 target_link_libraries(${PROJECT_NAME} 
   PRIVATE 
-    vk-hpp::vk-hpp
-    vk-bootstrap::vk-bootstrap
     capo::capo
-    capo::options
-    dear_imgui::dear_imgui
+    dibs::dibs
+    dibs::options
 )
 if(PLATFORM STREQUAL "Win64" AND NOT WIN64_GCC)
-	if(MSVC)
-		target_link_options(${PROJECT_NAME} PRIVATE
-			/ENTRY:mainCRTStartup                              # Link to main() and not WinMain()
-			/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>   # Spawn a console in Debug
-		)
-	else()
-		target_link_options(${PROJECT_NAME} PRIVATE -Wl,/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>,/ENTRY:mainCRTStartup)
-	endif()
+  if(MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE
+      /ENTRY:mainCRTStartup                              # Link to main() and not WinMain()
+      /SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>   # Spawn a console in Debug
+    )
+  else()
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>,/ENTRY:mainCRTStartup)
+  endif()
 endif()
+
+install(TARGETS ${PROJECT_NAME})

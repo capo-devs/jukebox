@@ -20,7 +20,7 @@ Version Version::parse(std::string_view str) noexcept {
 	char const* ch = advance(ret.major, str.data());
 	ch = advance(ret.minor, ch);
 	ch = advance(ret.patch, ch);
-	ch = advance(ret.patch, ch);
+	ch = advance(ret.tweak, ch);
 	return ret;
 }
 
