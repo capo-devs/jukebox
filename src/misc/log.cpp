@@ -1,12 +1,24 @@
 #include <jk_version.hpp>
 #include <ktl/async/async_queue.hpp>
 #include <ktl/async/kthread.hpp>
-#include <misc/delta_time.hpp>
 #include <misc/log.hpp>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 
 namespace jk {
+namespace stdch = std::chrono;
+
+namespace {
+std::string timeStr(std::string_view fmt = "%T", stdch::system_clock::time_point const& stamp = stdch::system_clock::now()) {
+	std::time_t const stamp_time = stdch::system_clock::to_time_t(stamp);
+	std::tm const stamp_tm = *std::localtime(&stamp_time);
+	char ret[1024];
+	std::strftime(ret, 1024, fmt.data(), &stamp_tm);
+	return ret;
+}
+} // namespace
+
 struct FileLogger {
 	ktl::async_queue<std::string> queue;
 	ktl::kthread thread;
@@ -44,7 +56,7 @@ std::optional<Log::File> Log::toFile(std::string path) {
 	}
 	g_file.emplace(std::move(path));
 	print(Level::debug, ktl::format("Logging to file [{}]", g_file->path), false);
-	print(Level::info, ktl::format("jukebox v{} | {}", jukebox_version, timeStr<stdch::system_clock>("%a %F (%Z)")));
+	print(Level::info, ktl::format("jukebox v{} | {}", jukebox_version, timeStr("%a %F (%Z)")));
 	return File(true);
 }
 

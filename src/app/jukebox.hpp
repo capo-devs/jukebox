@@ -2,10 +2,10 @@
 #include <app/controller.hpp>
 #include <app/player.hpp>
 #include <app/props.hpp>
+#include <dibs/event.hpp>
 #include <ktl/delegate.hpp>
 #include <ktl/enum_flags/enum_flags.hpp>
 #include <ktl/fixed_vector.hpp>
-#include <misc/delta_time.hpp>
 #include <memory>
 #include <optional>
 
@@ -40,15 +40,13 @@ class FileBrowser {
 class Jukebox {
   public:
 	enum class Status { eRun, eQuit };
-	using OnKey = ktl::delegate<Key>::signal;
-	using OnFileDrop = ktl::delegate<std::span<str_t const>>::signal;
 
 	static std::optional<Jukebox> make(ktl::not_null<GLFWwindow*> window);
 
-	void onKey(Key const& key);
-	void onFileDrop(std::span<str_t const> paths);
+	void onKey(dibs::Event::Key const& key);
+	void onFileDrop(std::span<std::string const> paths);
 
-	Status tick(Time dt);
+	void update();
 
   private:
 	enum class Flag { eSaveFailure, eShowImGuiDemo };
@@ -74,7 +72,7 @@ class Jukebox {
 	void playPause();
 	void next();
 	void prev();
-	void seek(Time stamp);
+	void seek(capo::Time stamp);
 	void muteUnmute();
 
 	void loadConfig();
@@ -88,7 +86,6 @@ class Jukebox {
 
 	struct {
 		ktl::stack_string<256> savePath = "jukebox_playlist.txt";
-		ktl::fixed_vector<Key, 16> keys;
 		Config config;
 		FileBrowser browser;
 		LazySliderFloat seek;

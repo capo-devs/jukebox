@@ -4,8 +4,6 @@
 #include <vector>
 
 namespace jk {
-using str_t = char const*;
-
 class Player {
   public:
 	enum class Status { eIdle, ePlaying, ePaused, eStopped };
@@ -13,7 +11,7 @@ class Player {
 
 	Player(ktl::not_null<capo::Instance*> capo);
 
-	bool add(std::span<str_t const> paths);
+	bool add(std::span<std::string const> paths);
 	bool push(std::string path, bool autoplay);
 	bool pop(std::string_view path) noexcept;
 	bool pop() noexcept;

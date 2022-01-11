@@ -4,7 +4,4 @@ target_sources(${PROJECT_NAME} PRIVATE
 )
 
 add_subdirectory(app)
-add_subdirectory(gui)
 add_subdirectory(misc)
-add_subdirectory(win)
-add_subdirectory(vk)

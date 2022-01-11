@@ -39,7 +39,7 @@ constexpr std::size_t getIndex(T const& elems, U const& u) noexcept {
 
 Player::Player(ktl::not_null<capo::Instance*> capo) : m_music(capo), m_capo(capo) {}
 
-bool Player::add(std::span<const str_t> paths) {
+bool Player::add(std::span<const std::string> paths) {
 	std::size_t added{};
 	capo::Music music(m_capo);
 	extractPaths(paths, m_paths, music, added);

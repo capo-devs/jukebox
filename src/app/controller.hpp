@@ -1,6 +1,6 @@
 #pragma once
+#include <dibs/event.hpp>
 #include <ktl/fixed_vector.hpp>
-#include <win/key.hpp>
 
 namespace jk {
 class Controller {
@@ -13,7 +13,7 @@ class Controller {
 	};
 	using ResponseList = ktl::fixed_vector<Response, 4>;
 
-	void onKey(Key key) noexcept;
+	void onKey(dibs::Event::Key const& key) noexcept;
 	ResponseList responses() noexcept { return std::move(m_list); }
 
   private:

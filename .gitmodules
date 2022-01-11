@@ -1,16 +1,7 @@
-[submodule "ext/glfw"]
-	shallow = true
-	path = ext/glfw
-	url = https://github.com/glfw/glfw
-[submodule "ext/dear_imgui/src"]
-	shallow = true
-	path = ext/dear_imgui/src
-	url = https://github.com/ocornut/imgui
-[submodule "ext/vk_bootstrap"]
-	shallow = true
-	path = ext/vk_bootstrap
-	url = https://github.com/charles-lunarg/vk-bootstrap
 [submodule "ext/capo"]
 	shallow = true
 	path = ext/capo
 	url = https://github.com/capo-devs/capo
+[submodule "ext/dibs"]
+	path = ext/dibs
+	url = https://github.com/karnkaul/dibs
