@@ -1,6 +1,6 @@
 #include <jk_version.hpp>
-#include <ktl/async_queue.hpp>
-#include <ktl/kthread.hpp>
+#include <ktl/async/async_queue.hpp>
+#include <ktl/async/kthread.hpp>
 #include <misc/delta_time.hpp>
 #include <misc/log.hpp>
 #include <fstream>

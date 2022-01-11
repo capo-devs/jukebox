@@ -29,11 +29,14 @@ int main() {
 	auto boot = jk::VkBoot::make(jk::GlfwSurfaceMaker{window});
 	if (!window || !boot) { return 10; }
 	auto onKeySignal = glfwInst->onKey(window);
+	auto onFileDropSignal = glfwInst->onFileDrop(window);
 	auto getExtent = [window]() { return jk::framebufferSize(window); };
 	jk::Renderer renderer(boot->gfx(), std::move(getExtent), glfwInst->onIconify(window));
 	auto imguiInst = jk::ImGuiInstance::make(boot->gfx(), window, renderer.renderPass(), renderer.imageCount());
-	auto jukebox = jk::Jukebox::make(*glfwInst, window);
+	auto jukebox = jk::Jukebox::make(window);
 	if (!glfwInst || !imguiInst || !jukebox) { return 10; }
+	onKeySignal += [&jukebox](jk::Key key) { jukebox->onKey(key); };
+	onFileDropSignal += [&jukebox](auto const& args) { jukebox->onFileDrop(args); };
 	glfwShowWindow(window);
 	jk::DeltaTime dt;
 	bool quit = false;

@@ -1,12 +1,12 @@
 #pragma once
+#include <ktl/async/kfunction.hpp>
 #include <ktl/fixed_vector.hpp>
-#include <ktl/move_only_function.hpp>
 #include <misc/vec.hpp>
 #include <vk/types.hpp>
 
 namespace jk {
 struct Swapchain {
-	using GetExtent = ktl::move_only_function<UVec2()>;
+	using GetExtent = ktl::kfunction<UVec2()>;
 
 	class Factory;
 

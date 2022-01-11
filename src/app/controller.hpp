@@ -1,5 +1,4 @@
 #pragma once
-#include <ktl/delegate.hpp>
 #include <ktl/fixed_vector.hpp>
 #include <win/key.hpp>
 
@@ -14,20 +13,13 @@ class Controller {
 	};
 	using ResponseList = ktl::fixed_vector<Response, 4>;
 
-	using Input = ktl::delegate<Key>;
-
-	Controller(Input::signal&& signal);
-	Controller(Controller&&) noexcept;
-	Controller& operator=(Controller&&) noexcept;
-
-	ResponseList update() noexcept { return std::exchange(m_list, ResponseList()); }
+	void onKey(Key key) noexcept;
+	ResponseList responses() noexcept { return std::move(m_list); }
 
   private:
-	void onKey(Key key) noexcept;
 	void add(Action action, float value = {}) noexcept;
 	void replaceBindings() noexcept;
 
 	ResponseList m_list;
-	Input::signal m_signal;
 };
 } // namespace jk

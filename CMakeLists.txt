@@ -26,7 +26,20 @@ endif()
 
 # includes
 include(cmake/platform.cmake)
-include(cmake/utils.cmake)
+
+# cmake-utils
+include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_Declare(
+  cmake-utils
+  GIT_REPOSITORY https://github.com/karnkaul/cmake-utils
+  GIT_TAG v1.0.1
+  GIT_SHALLOW ON
+)
+FetchContent_MakeAvailable(cmake-utils)
+FetchContent_GetProperties(cmake-utils)
+
+include("${cmake-utils_SOURCE_DIR}/cmake-utils.cmake")
 
 # git operations
 find_package(Git QUIET)
@@ -92,7 +105,7 @@ add_subdirectory(ext/dear_imgui)
 # exe
 add_executable(${PROJECT_NAME})
 add_subdirectory(src)
-target_source_group(${PROJECT_NAME})
+target_source_group(TARGET ${PROJECT_NAME})
 target_include_directories(${PROJECT_NAME} PRIVATE include src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:JK_DEBUG>)
 target_link_libraries(${PROJECT_NAME} 

@@ -3,7 +3,7 @@
 #include <capo/utils/format_unit.hpp>
 #include <ktl/stack_string.hpp>
 #include <misc/log.hpp>
-#include <win/glfw_instance.hpp>
+#include <misc/vec.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <filesystem>
@@ -49,6 +49,24 @@ ktl::stack_string<16> length(capo::utils::Length const& len) noexcept {
 		if (len.seconds < 10s) { fmt = options[2]; }
 	}
 	return ktl::stack_string<16>(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
+}
+
+UVec2 framebufferSize(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetFramebufferSize(window, &w, &h);
+	return {std::uint32_t(w), std::uint32_t(h)};
+}
+
+UVec2 windowSize(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetWindowSize(window, &w, &h);
+	return {std::uint32_t(w), std::uint32_t(h)};
+}
+
+IVec2 windowPos(GLFWwindow* window) noexcept {
+	int w, h;
+	glfwGetWindowPos(window, &w, &h);
+	return {std::int32_t(w), std::int32_t(h)};
 }
 
 [[maybe_unused]] void tooltipMarker(char const* desc, char const* marker = "(?)") {
@@ -141,48 +159,37 @@ FileBrowser::~FileBrowser() noexcept = default;
 
 std::string FileBrowser::operator()() { return (*m_impl)(m_show).generic_string(); }
 
-std::optional<Jukebox> Jukebox::make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window) {
+std::optional<Jukebox> Jukebox::make(ktl::not_null<GLFWwindow*> window) {
 	auto capo = std::make_unique<capo::Instance>();
 	if (!capo->valid()) {
 		Log::error("[Jukebox] Failed to initialize capo instance!");
 		return {};
 	}
-	return Jukebox(instance, window, std::move(capo));
+	return Jukebox(window, std::move(capo));
 }
 
-Jukebox::Jukebox(GlfwInstance& glfw, ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo)
-	: m_capo(std::move(capo)), m_window(window), m_player(m_capo.get()), m_controller(glfw.onKey(window)) {
-	m_data.onKey = glfw.onKey(window);
-	m_data.onFileDrop = glfw.onFileDrop(window);
+Jukebox::Jukebox(ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo)
+	: m_capo(std::move(capo)), m_window(window), m_player(m_capo.get()) {
 	ImGui::GetStyle().ScaleAllSizes(1.33f);
 	ImGui::GetIO().FontGlobalScale = 1.33f;
 	ImGui::GetIO().IniFilename = {};
 	loadConfig();
-	m_data.onKey += [this](Key const& key) { onKey(key); };
-	m_data.onFileDrop += [this](std::span<str_t const> paths) { onFileDrop(paths); };
 }
 
-Jukebox::Jukebox(Jukebox&& rhs) noexcept
-	: m_capo(std::move(rhs.m_capo)), m_window(rhs.m_window), m_player(m_capo.get()), m_controller(std::move(rhs.m_controller)), m_data(std::move(rhs.m_data)) {
-	replaceBindings();
+void Jukebox::onKey(Key const& key) {
+	if (m_data.keys.has_space()) { m_data.keys.push_back(key); }
+	m_controller.onKey(key);
 }
 
-Jukebox& Jukebox::operator=(Jukebox&& rhs) noexcept {
-	if (&rhs != this) {
-		m_capo = std::move(rhs.m_capo);
-		m_window = rhs.m_window;
-		m_player = std::move(rhs.m_player);
-		m_controller = std::move(rhs.m_controller);
-		m_data = std::move(rhs.m_data);
-		replaceBindings();
-	}
-	return *this;
+void Jukebox::onFileDrop(std::span<str_t const> paths) {
+	bool const empty = m_player.empty();
+	if (m_player.add(paths) && empty) { m_player.play(); }
 }
 
 Jukebox::Status Jukebox::tick(Time) {
 	m_player.update();
 	using Action = Controller::Action;
-	for (auto const& response : m_controller.update()) {
+	for (auto const& response : m_controller.responses()) {
 		switch (response.action) {
 		case Action::ePlayPause: playPause(); break;
 		case Action::eStop: m_player.stop(); break;
@@ -411,20 +418,6 @@ void Jukebox::updateConfig() {
 	m_data.config.props.add(true, "volume", int(m_player.gain() * 100.0f));
 	m_data.config.props.add(true, "window_size", windowSize(m_window));
 	m_data.config.props.add(true, "window_pos", windowPos(m_window));
-}
-
-void Jukebox::onKey(Key const& key) {
-	if (m_data.keys.has_space()) { m_data.keys.push_back(key); }
-}
-
-void Jukebox::onFileDrop(std::span<str_t const> paths) {
-	bool const empty = m_player.empty();
-	if (m_player.add(paths) && empty) { m_player.play(); }
-}
-
-void Jukebox::replaceBindings() noexcept {
-	m_data.onKey.replace(m_data.onKey.tag(), [this](Key const& key) { onKey(key); });
-	m_data.onFileDrop.replace(m_data.onFileDrop.tag(), [this](std::span<str_t const> paths) { onFileDrop(paths); });
 }
 
 Jukebox::Config::~Config() {

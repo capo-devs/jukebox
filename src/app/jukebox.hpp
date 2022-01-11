@@ -12,8 +12,6 @@
 struct GLFWwindow;
 
 namespace jk {
-class GlfwInstance;
-
 struct LazySliderFloat {
 	std::optional<float> prev;
 
@@ -45,10 +43,10 @@ class Jukebox {
 	using OnKey = ktl::delegate<Key>::signal;
 	using OnFileDrop = ktl::delegate<std::span<str_t const>>::signal;
 
-	static std::optional<Jukebox> make(GlfwInstance& instance, ktl::not_null<GLFWwindow*> window);
+	static std::optional<Jukebox> make(ktl::not_null<GLFWwindow*> window);
 
-	Jukebox(Jukebox&&) noexcept;
-	Jukebox& operator=(Jukebox&&) noexcept;
+	void onKey(Key const& key);
+	void onFileDrop(std::span<str_t const> paths);
 
 	Status tick(Time dt);
 
@@ -66,7 +64,7 @@ class Jukebox {
 		~Config();
 	};
 
-	Jukebox(GlfwInstance& glfw, ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo);
+	Jukebox(ktl::not_null<GLFWwindow*> window, std::unique_ptr<capo::Instance>&& capo);
 
 	void mainControls();
 	void seekBar();
@@ -82,10 +80,6 @@ class Jukebox {
 	void loadConfig();
 	void updateConfig();
 
-	void onKey(Key const& key);
-	void onFileDrop(std::span<str_t const> paths);
-	void replaceBindings() noexcept;
-
 	// Ordered members
 	std::unique_ptr<capo::Instance> m_capo;
 	ktl::not_null<GLFWwindow*> m_window;
@@ -96,8 +90,6 @@ class Jukebox {
 		ktl::stack_string<256> savePath = "jukebox_playlist.txt";
 		ktl::fixed_vector<Key, 16> keys;
 		Config config;
-		OnKey onKey;
-		OnFileDrop onFileDrop;
 		FileBrowser browser;
 		LazySliderFloat seek;
 		Flags flags;
