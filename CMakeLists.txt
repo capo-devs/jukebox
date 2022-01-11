@@ -111,3 +111,5 @@ if(PLATFORM STREQUAL "Win64" AND NOT WIN64_GCC)
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,/SUBSYSTEM:$<IF:$<CONFIG:Debug>,CONSOLE,WINDOWS>,/ENTRY:mainCRTStartup)
   endif()
 endif()
+
+install(TARGETS ${PROJECT_NAME})
