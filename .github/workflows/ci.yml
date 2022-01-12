@@ -24,8 +24,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: init
-        run: choco install ninja
       - name: configure
         run: cp cmake/CMakePresets.json . && cmake -S . --preset=vs19 -B build -DCAPO_USE_OPENAL=OFF
       - name: build

@@ -87,6 +87,7 @@ add_subdirectory(ext/capo)
 
 # dibs
 set(DIBS_BUILD_EXAMPLE OFF)
+set(DIBS_INSTALL OFF)
 add_subdirectory(ext/dibs)
 
 # exe
