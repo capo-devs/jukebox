@@ -1,0 +1,39 @@
+name: release
+on:
+  push:
+    tags: "v*.*"
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: init
+        run: sudo apt install -yqq ninja-build xorg-dev libpulse-dev libjack-dev
+      - name: configure
+        run: cp cmake/CMakePresets.json . && cmake -S . --preset=nc-release -B build
+      - name: build
+        run: cmake --build build
+      - name: package
+        run: cd build && tar -czf jukebox-@PROJECT_VERSION@-Linux-x64.tar.gz jukebox
+      - name: upload
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/*.tar.gz
+          draft: true
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: init
+        run: choco install ninja
+      - name: configure
+        run: cp cmake/CMakePresets.json . && cmake -S . --preset=vs19 -B build
+      - name: build
+        run: cmake --build build --config=Release
+      - name: package
+        run: cd build/Release && 7z a jukebox-@PROJECT_VERSION@-Windows.zip jukebox.exe
+      - name: upload
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/Release/*.zip
+          draft: true
