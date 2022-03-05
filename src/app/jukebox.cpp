@@ -44,8 +44,8 @@ constexpr ktl::stack_string<N> filename(std::string_view path, bool ext) noexcep
 }
 
 ktl::stack_string<16> length(capo::utils::Length const& len) noexcept {
-	static constexpr std::string_view options[] = {"%ld:0%ld:0%ld", "%ld:0%ld:%ld", "%ld:%ld:0%ld"};
-	std::string_view fmt = "%ld:%ld:%ld";
+	static constexpr std::string_view options[] = {"{}:0{}:0{}", "{}:0{}:{}", "{}:{}:0{}"};
+	std::string_view fmt = "{}:{}:{}";
 	if (len.minutes < stdch::minutes(10)) {
 		if (len.seconds < 10s) {
 			fmt = options[0];
@@ -300,7 +300,7 @@ void Jukebox::trackControls() {
 		}
 		if (ImGui::BeginPopup("save_playlist")) {
 			if (m_data.flags[Flag::eSaveFailure]) {
-				auto text = ktl::stack_string<512>("Save to %s failed!", m_data.savePath);
+				auto text = ktl::stack_string<512>("Save to {} failed!", m_data.savePath.get());
 				ImGui::Text("%s", text.data());
 			} else {
 				ImGui::Text("Path:");

@@ -16,7 +16,7 @@ class Log {
 
 	template <typename... T>
 	static void log(Level level, std::string_view fmt, T const&... t) {
-		if (!skip(level) && level <= s_minLevel) { print(level, ktl::format(fmt, t...)); }
+		if (!skip(level) && level <= s_minLevel) { print(level, ktl::str_format(fmt, t...)); }
 	}
 
 	template <typename... T>
