@@ -85,7 +85,7 @@ class Jukebox {
 	Controller m_controller;
 
 	struct {
-		ktl::stack_string<256> savePath = "jukebox_playlist.txt";
+		std::string savePath = "jukebox_playlist.txt";
 		Config config;
 		FileBrowser browser;
 		LazySliderFloat seek;

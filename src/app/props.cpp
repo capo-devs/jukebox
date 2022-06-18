@@ -70,7 +70,7 @@ bool Props::save(char const* path) const {
 		}
 		line = flattenLine(std::move(kv.first), std::move(kv.second));
 	}
-	for (auto const [key, value] : view) { lines.push_back(flattenLine(std::string(key), std::string(value))); }
+	for (auto const& [key, value] : view) { lines.push_back(flattenLine(std::string(key), std::string(value))); }
 	return writeLines(path, lines);
 }
 } // namespace jk

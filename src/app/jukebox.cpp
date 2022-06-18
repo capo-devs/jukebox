@@ -2,7 +2,6 @@
 #include <app/playlist.hpp>
 #include <capo/utils/format_unit.hpp>
 #include <dibs/vec2.hpp>
-#include <ktl/stack_string.hpp>
 #include <misc/log.hpp>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -33,17 +32,16 @@ namespace stdch = std::chrono;
 using namespace std::chrono_literals;
 
 namespace {
-template <std::size_t N = 256>
-constexpr ktl::stack_string<N> filename(std::string_view path, bool ext) noexcept {
+constexpr std::string_view filename(std::string_view path, bool ext) noexcept {
 	if (path.empty()) { return "--"; }
 	auto it = path.find_last_of('/');
 	if (it == std::string_view::npos) { it = path.find_last_of('\\'); }
 	if (it != std::string_view::npos) { path = path.substr(it + 1); }
 	if (it = path.find_last_of('.'); !ext && it != std::string_view::npos) { path = path.substr(0, it); }
-	return path.size() < N ? path : path.substr(path.size() - N);
+	return path;
 }
 
-ktl::stack_string<16> length(capo::utils::Length const& len) noexcept {
+std::string length(capo::utils::Length const& len) noexcept {
 	static constexpr std::string_view options[] = {"{}:0{}:0{}", "{}:0{}:{}", "{}:{}:0{}"};
 	std::string_view fmt = "{}:{}:{}";
 	if (len.minutes < stdch::minutes(10)) {
@@ -55,7 +53,7 @@ ktl::stack_string<16> length(capo::utils::Length const& len) noexcept {
 	} else {
 		if (len.seconds < 10s) { fmt = options[2]; }
 	}
-	return ktl::stack_string<16>(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
+	return ktl::kformat(fmt.data(), len.hours.count(), len.minutes.count(), len.seconds.count());
 }
 
 dibs::uvec2 framebufferSize(GLFWwindow* window) noexcept {
@@ -300,12 +298,12 @@ void Jukebox::trackControls() {
 		}
 		if (ImGui::BeginPopup("save_playlist")) {
 			if (m_data.flags[Flag::eSaveFailure]) {
-				auto text = ktl::stack_string<512>("Save to {} failed!", m_data.savePath.get());
+				auto text = ktl::kformat("Save to {} failed!", m_data.savePath);
 				ImGui::Text("%s", text.data());
 			} else {
 				ImGui::Text("Path:");
 				ImGui::SameLine();
-				ImGui::InputText("##save_path", m_data.savePath.c_str(), m_data.savePath.capacity());
+				ImGui::InputText("##save_path", m_data.savePath.data(), m_data.savePath.capacity());
 			}
 			if (ImGui::Button("OK")) {
 				Playlist list{{m_player.paths().begin(), m_player.paths().end()}};

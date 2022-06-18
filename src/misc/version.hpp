@@ -1,6 +1,6 @@
 #pragma once
-#include <ktl/stack_string.hpp>
 #include <compare>
+#include <string>
 
 namespace jk {
 struct Version {
@@ -15,6 +15,6 @@ struct Version {
 	constexpr auto operator<=>(Version const&) const = default;
 	constexpr bool compatible(Version const& target) const noexcept { return target <= *this; }
 
-	ktl::stack_string<64> toString(bool full = false) const noexcept;
+	std::string toString(bool full = false) const noexcept;
 };
 } // namespace jk

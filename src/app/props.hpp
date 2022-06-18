@@ -1,5 +1,4 @@
 #pragma once
-#include <ktl/stack_string.hpp>
 #include <sstream>
 #include <string>
 #include <unordered_map>

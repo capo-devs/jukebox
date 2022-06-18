@@ -47,7 +47,7 @@ Log::File::~File() noexcept {
 
 std::optional<Log::File> Log::toFile(std::string path) {
 	if (g_file) {
-		print(Level::warn, ktl::str_format("Already logging to file [{}]", g_file->path), false);
+		print(Level::warn, ktl::kformat("Already logging to file [{}]", g_file->path), false);
 		return std::nullopt;
 	}
 	if (auto file = std::ofstream(path); !file) {
@@ -55,15 +55,15 @@ std::optional<Log::File> Log::toFile(std::string path) {
 		return std::nullopt;
 	}
 	g_file.emplace(std::move(path));
-	print(Level::debug, ktl::str_format("Logging to file [{}]", g_file->path), false);
-	print(Level::info, ktl::str_format("jukebox v{} | {}", jukebox_version, timeStr("%a %F (%Z)")));
+	print(Level::debug, ktl::kformat("Logging to file [{}]", g_file->path), false);
+	print(Level::info, ktl::kformat("jukebox v{} | {}", jukebox_version, timeStr("%a %F (%Z)")));
 	return File(true);
 }
 
 void Log::print(Level level, std::string_view message, bool file) {
 	static constexpr char levels[] = {'E', 'W', 'I', 'D'};
 	std::ostream& out = level == Level::error ? std::cerr : std::cout;
-	auto line = ktl::str_format("[{}] {} [{}]\n", levels[std::size_t(level)], message, timeStr());
+	auto line = ktl::kformat("[{}] {} [{}]\n", levels[std::size_t(level)], message, timeStr());
 	out << line;
 	if (file && g_file) { g_file->queue.push(std::move(line)); }
 }

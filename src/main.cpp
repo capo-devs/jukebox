@@ -6,13 +6,13 @@
 #include <misc/version.hpp>
 
 namespace {
-ktl::stack_string<128> windowTitle(std::string_view appName) {
+std::string windowTitle(std::string_view appName) {
 	if constexpr (jk_debug) {
 		auto const app = jk::Version::app().toString(true);
-		return ktl::stack_string<128>("%s %s | Debug", appName.data(), app.data());
+		return ktl::kformat("{} {} | Debug", appName.data(), app.data());
 	} else {
 		auto const app = jk::Version::app().toString();
-		return ktl::stack_string<128>("%s %s", appName.data(), app.data());
+		return ktl::kformat("{} {}", appName.data(), app.data());
 	}
 }
 } // namespace

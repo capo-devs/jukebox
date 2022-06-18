@@ -1,4 +1,5 @@
 #include <jk_version.hpp>
+#include <ktl/kformat.hpp>
 #include <misc/version.hpp>
 #include <cstdlib>
 #include <cstring>
@@ -29,11 +30,11 @@ Version Version::app() noexcept {
 	return ret;
 }
 
-ktl::stack_string<64> Version::toString(bool full) const noexcept {
+std::string Version::toString(bool full) const noexcept {
 	if (full) {
-		return ktl::stack_string<64>("v%d.%d.%d.%d", major, minor, patch, tweak);
+		return ktl::kformat("v{}.{}.{}.{}", major, minor, patch, tweak);
 	} else {
-		return ktl::stack_string<64>("v%d.%d", major, minor);
+		return ktl::kformat("v{}.{}", major, minor);
 	}
 }
 } // namespace jk

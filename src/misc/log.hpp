@@ -1,6 +1,6 @@
 #pragma once
 #include <jk_common.hpp>
-#include <ktl/str_format.hpp>
+#include <ktl/kformat.hpp>
 #include <optional>
 
 namespace jk {
@@ -16,7 +16,7 @@ class Log {
 
 	template <typename... T>
 	static void log(Level level, std::string_view fmt, T const&... t) {
-		if (!skip(level) && level <= s_minLevel) { print(level, ktl::str_format(fmt, t...)); }
+		if (!skip(level) && level <= s_minLevel) { print(level, ktl::kformat(fmt, t...)); }
 	}
 
 	template <typename... T>
